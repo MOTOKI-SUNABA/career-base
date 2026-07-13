@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Cloud, DatabaseBackup, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Cloud, DatabaseBackup, Download, LogIn, LogOut, RotateCcw, Trash2, Upload, UserPlus } from "lucide-react";
 import { PageHeader } from "./ui";
 import { useCloudSync } from "./cloud-sync-provider";
 import { clearCareerBaseData, createBackup, parseBackup, restoreBackup } from "@/lib/backup";
@@ -15,19 +15,24 @@ function errorMessage(error: unknown) {
 
 export function SettingsPage() {
   const [notice, setNotice] = useState<Notice>(null);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cloud = useCloudSync();
 
-  async function signIn(event: FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    const passwordConfirmation = String(form.get("passwordConfirmation") ?? "");
     if (!email || !password) return setNotice({ tone: "error", text: "メールアドレスとパスワードを入力してください。" });
+    if (authMode === "signup" && password.length < 8) return setNotice({ tone: "error", text: "パスワードは8文字以上で入力してください。" });
+    if (authMode === "signup" && password !== passwordConfirmation) return setNotice({ tone: "error", text: "確認用パスワードが一致しません。" });
     try {
-      const message = await cloud.signIn(email, password);
-      setNotice({ tone: "success", text: message || "ログインしました。" });
+      const message = authMode === "login" ? await cloud.signIn(email, password) : await cloud.signUp(email, password);
+      setNotice({ tone: "success", text: message || (authMode === "login" ? "ログインしました。" : "アカウントを作成しました。") });
+      if (authMode === "signup") setAuthMode("login");
       formElement.reset();
     } catch (error) {
       setNotice({ tone: "error", text: errorMessage(error) });
@@ -92,7 +97,7 @@ export function SettingsPage() {
 
   return <>
     <PageHeader title="設定" description="クラウド同期とバックアップ" showSettings={false} />
-    {notice && <div className={`notice notice-${notice.tone}`} role="status">{notice.text}</div>}
+    {(notice ?? cloud.statusNotice) && <div className={`notice notice-${(notice ?? cloud.statusNotice)?.tone}`} role="status">{(notice ?? cloud.statusNotice)?.text}</div>}
     <div className="settings-grid">
       <section className="card cloud-card">
         <div className="settings-icon"><Cloud /></div>
@@ -107,14 +112,24 @@ export function SettingsPage() {
                   <button className="secondary-button" disabled={cloud.syncing} onClick={() => void runCloudAction(cloud.download, "この端末のデータをクラウドの内容で置き換えますか？")}>クラウドから読込</button>
                   <button className="secondary-button" disabled={cloud.syncing} onClick={() => void runCloudAction(cloud.signOut)}><LogOut size={18} />ログアウト</button>
                 </div>
-              </> : <form className="cloud-login-form" onSubmit={signIn}>
-                <p>Supabaseに登録した自分のアカウントでログインしてください。</p>
+              </> : <>
+              <div className="auth-mode-tabs" role="group" aria-label="アカウント操作">
+                <button type="button" className={authMode === "login" ? "active" : ""} aria-pressed={authMode === "login"} onClick={() => { setAuthMode("login"); setNotice(null); }}>ログイン</button>
+                <button type="button" className={authMode === "signup" ? "active" : ""} aria-pressed={authMode === "signup"} onClick={() => { setAuthMode("signup"); setNotice(null); }}>新規登録</button>
+              </div>
+              <form className="cloud-login-form" onSubmit={submitAuth}>
+                <p>{authMode === "login" ? "登録済みのアカウントでログインしてください。" : "メールアドレスとパスワードでアカウントを作成します。"}</p>
                 <label htmlFor="cloud-email">メールアドレス</label>
                 <input id="cloud-email" name="email" type="email" autoComplete="email" required />
                 <label htmlFor="cloud-password">パスワード</label>
-                <input id="cloud-password" name="password" type="password" autoComplete="current-password" required />
-                <button className="primary-button" disabled={cloud.syncing}><LogIn size={18} />{cloud.syncing ? "ログイン中…" : "ログイン"}</button>
-              </form>}
+                <input id="cloud-password" name="password" type="password" minLength={authMode === "signup" ? 8 : undefined} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required />
+                {authMode === "signup" && <>
+                  <label htmlFor="cloud-password-confirmation">パスワード（確認）</label>
+                  <input id="cloud-password-confirmation" name="passwordConfirmation" type="password" minLength={8} autoComplete="new-password" required />
+                  <small className="auth-help">8文字以上で設定してください。登録後に確認メールが届く場合があります。</small>
+                </>}
+                <button className="primary-button" disabled={cloud.syncing}>{authMode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}{cloud.syncing ? "処理中…" : authMode === "login" ? "ログイン" : "アカウントを作成"}</button>
+              </form></>}
         </div>
       </section>
       <section className="card settings-card"><div className="settings-icon"><DatabaseBackup /></div><div><h2>バックアップ</h2><p>このブラウザに保存されている予定・ToDo・企業・メモを、ひとつのJSONファイルにまとめます。</p></div><button className="primary-button" onClick={exportData}><Download size={18} />書き出す</button></section>

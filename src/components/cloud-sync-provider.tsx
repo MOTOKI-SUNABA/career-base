@@ -1,14 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { downloadCloudData, getCloudSession, initializeCloudData, isCloudConfigured, signInToCloud, signOutFromCloud, uploadLocalData } from "@/lib/cloud-sync";
+import { consumeCloudSessionFromUrl, downloadCloudData, getCloudSession, initializeCloudData, isCloudConfigured, signInToCloud, signOutFromCloud, signUpToCloud, uploadLocalData } from "@/lib/cloud-sync";
+
+type CloudNotice = { tone: "success" | "error"; text: string } | null;
 
 interface CloudSyncContextValue {
   configured: boolean;
   loading: boolean;
   syncing: boolean;
   email: string | null;
+  statusNotice: CloudNotice;
   signIn: (email: string, password: string) => Promise<string>;
+  signUp: (email: string, password: string) => Promise<string>;
   signOut: () => Promise<string>;
   upload: () => Promise<string>;
   download: () => Promise<string>;
@@ -21,11 +25,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(configured);
   const [syncing, setSyncing] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<CloudNotice>(null);
 
   useEffect(() => {
     let active = true;
     if (!configured) return;
-    void getCloudSession().then(async (session) => {
+    void (async () => {
+      let session = await getCloudSession();
+      try {
+        const confirmedSession = await consumeCloudSessionFromUrl();
+        if (confirmedSession) {
+          session = confirmedSession;
+          if (active) setStatusNotice({ tone: "success", text: "メールアドレスの確認が完了し、ログインしました。" });
+        }
+      } catch (error) {
+        if (active) setStatusNotice({ tone: "error", text: error instanceof Error ? error.message : "メールアドレスを確認できませんでした。" });
+      }
       if (!active) return;
       setEmail(session?.user.email ?? null);
       if (session) {
@@ -34,7 +49,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         if (active) setSyncing(false);
       }
       if (active) setLoading(false);
-    });
+    })();
     return () => { active = false; };
   }, [configured]);
 
@@ -43,7 +58,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     loading,
     syncing,
     email,
+    statusNotice,
     async signIn(address, password) {
+      setStatusNotice(null);
       setSyncing(true);
       try {
         const session = await signInToCloud(address, password);
@@ -51,7 +68,21 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         return await initializeCloudData();
       } finally { setSyncing(false); }
     },
+    async signUp(address, password) {
+      setStatusNotice(null);
+      setSyncing(true);
+      try {
+        const result = await signUpToCloud(address, password);
+        if (result.signedIn) {
+          const session = await getCloudSession();
+          setEmail(session?.user.email ?? address);
+          await initializeCloudData();
+        }
+        return result.message;
+      } finally { setSyncing(false); }
+    },
     async signOut() {
+      setStatusNotice(null);
       setSyncing(true);
       try {
         const message = await signOutFromCloud();
@@ -67,7 +98,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       setSyncing(true);
       try { return (await downloadCloudData()).message; } finally { setSyncing(false); }
     },
-  }), [configured, email, loading, syncing]);
+  }), [configured, email, loading, statusNotice, syncing]);
 
   return <CloudSyncContext.Provider value={value}>{children}</CloudSyncContext.Provider>;
 }
