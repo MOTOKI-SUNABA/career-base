@@ -2,6 +2,8 @@
 
 大学生活・研究・就職活動・私生活の予定、ToDo、企業情報、メモをひとつにまとめる個人用Webアプリです。スマートフォンで素早く確認・登録でき、PCでもアプリらしく使えるレスポンシブUIを採用しています。
 
+公開版: [https://career-base.vercel.app](https://career-base.vercel.app)
+
 ## 開発目的
 
 情報がカレンダー、メモ帳、就活サイトなどに散らばる問題を解消し、日々の行動と就職活動を一か所で管理することが目的です。localStorageを端末キャッシュとして利用し、任意でSupabaseへ永続化・同期できるMVPとして保存層を分離しています。
@@ -15,7 +17,9 @@
 - 登録済みデータの編集
 - JSON形式でのバックアップ・復元・全データ削除
 - `localStorage` によるデータ種別ごとの永続化と初回用サンプルデータ
-- Supabaseのメール／パスワード認証、新規登録、RLSによるデータ保護、複数端末同期（接続設定時）
+- Supabaseのメール／パスワード認証、利用者自身による新規登録、確認メール
+- RLSによるユーザー単位のデータ保護と複数端末同期（Supabase接続時）
+- 設定画面でのクラウド保存・読込・ログアウト
 - モバイル優先の固定下部ナビゲーション、キーボード操作、フォーカス表示
 
 ## 使用技術
@@ -40,14 +44,25 @@ Windows PowerShellの実行ポリシーにより `npm` が実行できない場�
 
 ブラウザで `http://localhost:3000` を開くと `/calendar` に移動します。
 
+## 画面構成
+
+| ルート | 内容 |
+| --- | --- |
+| `/calendar` | 月間カレンダーと予定管理 |
+| `/todos` | 未完了・完了ToDoの管理 |
+| `/career` | 就活企業情報の管理 |
+| `/memos` | メモの管理 |
+| `/settings` | 認証、クラウド同期、バックアップ |
+
 ### Supabase同期を使う場合
 
 1. Supabaseでプロジェクトを作成する
 2. SQL Editorで `supabase/migrations/20260713_create_career_base_data.sql` を実行する
 3. AuthenticationのSign In / ProvidersでEmailの新規登録を有効にし、Confirm Emailを有効にする
 4. AuthenticationのURL ConfigurationでSite URLを公開URL、Redirect URLsに公開版と`http://localhost:3000/**`を登録する
-5. 他の利用者へ確認メールを送る場合はCustom SMTPを設定する
-6. `.env.example` を参考に、プロジェクト直下へ `.env.local` を作成する
+5. 一般の利用者へ確認メールを送る場合は、AuthenticationのSMTP設定でCustom SMTPを有効にする
+6. AuthenticationのEmail Templatesで`Confirm signup`の件名と本文を設定する
+7. `.env.example` を参考に、プロジェクト直下へ `.env.local` を作成する
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
@@ -55,6 +70,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
 ブラウザ用のPublishable keyだけを使用し、Secret keyや`service_role`キーは設定しないでください。`.env.local`はGit管理の対象外です。
+
+Custom SMTPにはSMTPサービスで発行したホスト、ポート、ログイン名、SMTPキーを設定します。SMTPキーはSupabase Dashboardへ直接登録し、ソースコード、`.env.local`、GitHub、READMEには保存しないでください。確認メール本文にはSupabaseが発行するURLを埋め込むため、`{{ .ConfirmationURL }}`を残します。
 
 接続情報がない場合も、従来どおりlocalStorageだけで利用できます。設定画面からログインした際、クラウドにデータがなければ現在の端末データを保存し、既存データがあればクラウドの内容を端末へ反映します。その後の追加・編集・削除は自動でクラウドへ保存されます。
 
@@ -105,3 +122,11 @@ npm run build
 6. Framework Presetが「Next.js」であることを確認してDeployする
 
 VercelでもSupabase同期を使う場合は、Project SettingsのEnvironment Variablesへ `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` を追加し、Production・Preview・Developmentの必要な環境を選択して再デプロイします。接続情報を設定しない場合、データは従来どおり各ブラウザのlocalStorageに保存されます。
+
+## 現在の制約と注意事項
+
+- パスワード再設定、CAPTCHA、アカウント削除は未実装です
+- 公開URLでは誰でも新規登録できるため、広く案内する前にCAPTCHAの導入を推奨します
+- 無料メールアドレスをSMTPの送信元にすると、確認メールが迷惑メールへ振り分けられる場合があります
+- 同じデータを複数端末から同時編集した場合、最後にクラウドへ保存された内容が優先されます
+- ブラウザの保存データを消去するとlocalStorageのデータも消えるため、未ログインで利用する場合はJSONバックアップを作成してください
