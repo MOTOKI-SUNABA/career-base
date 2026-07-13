@@ -126,7 +126,7 @@ export function SettingsPage() {
                 {authMode === "signup" && <>
                   <label htmlFor="cloud-password-confirmation">パスワード（確認）</label>
                   <input id="cloud-password-confirmation" name="passwordConfirmation" type="password" minLength={8} autoComplete="new-password" required />
-                  <small className="auth-help">8文字以上で設定してください。登録後に確認メールが届く場合があります。</small>
+                  <small className="auth-help">8文字以上で設定してください。登録後に確認メールが届きます。</small>
                 </>}
                 <button className="primary-button" disabled={cloud.syncing}>{authMode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}{cloud.syncing ? "処理中…" : authMode === "login" ? "ログイン" : "アカウントを作成"}</button>
               </form></>}
