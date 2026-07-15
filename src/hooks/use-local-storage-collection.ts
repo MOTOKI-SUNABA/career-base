@@ -2,7 +2,10 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { scheduleCloudUpload, STORAGE_RESTORED_EVENT } from "@/lib/cloud-sync";
 import { readStorage, writeStorage } from "@/lib/storage";
-export function useLocalStorageCollection<T extends { id: string }>(key: string, initial: T[]) {
+
+const EMPTY_COLLECTION: never[] = [];
+
+export function useLocalStorageCollection<T extends { id: string }>(key: string, initial: T[] = EMPTY_COLLECTION) {
   const hydrated = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const [storedItems, setItems] = useState<T[]>(() => readStorage(key, initial));
   useEffect(() => {

@@ -5,7 +5,6 @@ import { CalendarClock, Pencil, Trash2 } from "lucide-react";
 import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
 import { formatDate, todayKey } from "@/lib/date";
-import { seedTodos } from "@/lib/seed";
 import { STORAGE_KEYS } from "@/lib/storage";
 import { categories, type Todo } from "@/types";
 
@@ -13,7 +12,7 @@ export function TodosPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | null>(null);
   const [error, setError] = useState("");
-  const { items, add, remove, replace } = useLocalStorageCollection(STORAGE_KEYS.todos, seedTodos);
+  const { items, add, remove, replace } = useLocalStorageCollection<Todo>(STORAGE_KEYS.todos);
   const pending = items.filter((item) => !item.completed).sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   const done = items.filter((item) => item.completed);
 

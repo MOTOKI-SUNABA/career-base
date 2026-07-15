@@ -5,7 +5,6 @@ import { Building2, CalendarClock, MapPin, Pencil, Search, Trash2 } from "lucide
 import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
 import { formatDate } from "@/lib/date";
-import { seedCompanies } from "@/lib/seed";
 import { STORAGE_KEYS } from "@/lib/storage";
 import { industries, interestLevels, selectionStatuses, type Company } from "@/types";
 
@@ -16,7 +15,7 @@ export function CareerPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("すべて");
   const [selected, setSelected] = useState<Company | null>(null);
-  const { items, add, remove, replace } = useLocalStorageCollection(STORAGE_KEYS.companies, seedCompanies);
+  const { items, add, remove, replace } = useLocalStorageCollection<Company>(STORAGE_KEYS.companies);
   const filtered = useMemo(() => items.filter((company) => company.name.toLowerCase().includes(query.toLowerCase()) && (status === "すべて" || company.selectionStatus === status)), [items, query, status]);
   const industryOptions = editing?.industry && !industries.some((industry) => industry === editing.industry) ? [editing.industry, ...industries] : industries;
 

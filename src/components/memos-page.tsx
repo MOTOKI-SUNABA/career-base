@@ -4,7 +4,6 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Hash, Pencil, Search, Trash2 } from "lucide-react";
 import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
-import { seedMemos } from "@/lib/seed";
 import { STORAGE_KEYS } from "@/lib/storage";
 import { memoCategories, type Memo } from "@/types";
 
@@ -15,7 +14,7 @@ export function MemosPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("すべて");
   const [selected, setSelected] = useState<Memo | null>(null);
-  const { items, add, remove, replace } = useLocalStorageCollection(STORAGE_KEYS.memos, seedMemos);
+  const { items, add, remove, replace } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
   const filtered = useMemo(() => { const normalized = query.toLowerCase(); return items.filter((memo) => (memo.title.toLowerCase().includes(normalized) || memo.content.toLowerCase().includes(normalized) || memo.tags.some((tag) => tag.toLowerCase().includes(normalized))) && (category === "すべて" || memo.category === category)); }, [items, query, category]);
 
   function openAddForm() { setEditing(null); setError(""); setFormOpen(true); }

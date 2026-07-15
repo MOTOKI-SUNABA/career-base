@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, Clock3, Pencil, Trash2 } from "lucide-react"
 import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
 import { calendarDays, toDateKey, todayKey } from "@/lib/date";
-import { seedEvents } from "@/lib/seed";
 import { STORAGE_KEYS } from "@/lib/storage";
 import { categories, type CalendarEvent } from "@/types";
 
@@ -17,7 +16,7 @@ export function CalendarPage() {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [error, setError] = useState("");
   const scheduleRef = useRef<HTMLElement>(null);
-  const { items, add, remove, replace } = useLocalStorageCollection(STORAGE_KEYS.events, seedEvents);
+  const { items, add, remove, replace } = useLocalStorageCollection<CalendarEvent>(STORAGE_KEYS.events);
   const days = useMemo(() => calendarDays(month), [month]);
   const selectedEvents = items.filter((item) => item.date === selected).sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 
