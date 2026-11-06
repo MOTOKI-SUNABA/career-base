@@ -34,5 +34,5 @@ export function useLocalStorageCollection<T extends { id: string }>(key: string,
     // Reorder only visible slots, keeping filtered-out records in place.
     return current.map((item) => visible.has(item.id) ? ordered[index++] : item);
   }), [update]);
-  return { items: hydrated ? storedItems : initial, hydrated, reorder, add: useCallback((item: T) => update((current) => [item, ...current]), [update]), remove: useCallback((id: string) => update((current) => current.filter((item) => item.id !== id)), [update]), replace: useCallback((item: T) => update((current) => current.map((value) => value.id === item.id ? item : value)), [update]) };
+  return { items: hydrated ? storedItems : initial, hydrated, reorder, update, add: useCallback((item: T) => update((current) => [item, ...current]), [update]), remove: useCallback((id: string) => update((current) => current.filter((item) => item.id !== id)), [update]), replace: useCallback((item: T) => update((current) => current.map((value) => value.id === item.id ? item : value)), [update]) };
 }

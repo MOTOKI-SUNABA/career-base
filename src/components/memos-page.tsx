@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Hash, NotebookPen, PanelLeftClose, PanelLeftOpen, Search, Trash2 } from "lucide-react";
-import { EmptyState, PageHeader, confirmDelete } from "./ui";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, Hash, ListFilter, NotebookPen, PanelLeftClose, PanelLeftOpen, Search, Trash2 } from "lucide-react";
+import { EmptyState, FormField, Modal, PageHeader, confirmDelete } from "./ui";
 import { MemoEditor } from "./memo-editor";
 import { SortableList } from "./sortable-list";
 import { useCloudSync } from "./cloud-sync-provider";
@@ -13,7 +13,7 @@ import { memoCategories, type Memo } from "@/types";
 
 export function MemosPage() {
   const cloud = useCloudSync();
-  const { items, hydrated, add, remove, replace, reorder } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
+  const { items, hydrated, add, remove, replace, reorder, update } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("すべて");
   const [draft, setDraft] = useState<Memo | null>(null);
@@ -21,6 +21,11 @@ export function MemosPage() {
   const [focused, setFocused] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [operationError, setOperationError] = useState("");
+  const [selecting, setSelecting] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [bulkDialog, setBulkDialog] = useState<{ kind: "move" | "delete"; ids: string[] } | null>(null);
+  const [bulkError, setBulkError] = useState("");
+  const [notice, setNotice] = useState("");
   const pendingDraft = useRef<Memo | null>(null);
   const persistedIds = useRef(new Set<string>());
   const workspace = useRef<HTMLDivElement>(null);
@@ -29,11 +34,15 @@ export function MemosPage() {
     return items.filter((memo) => (category === "すべて" || memo.category === category)
       && [memo.title, memo.content, ...memo.tags].some((value) => value.toLocaleLowerCase().includes(normalized)));
   }, [items, query, category]);
+  const selectedVisible = filtered.filter((memo) => checked.has(memo.id));
+  const batch = bulkDialog ? items.filter((memo) => bulkDialog.ids.includes(memo.id)) : [];
+  const ready = hydrated && !cloud.loading;
 
   useEffect(() => {
     function restored() {
       pendingDraft.current = null; persistedIds.current.clear(); draftRef.current = null;
       setDraft(null); setSaveFailed(false); setOperationError(""); setFocused(false);
+      setSelecting(false); setChecked(new Set()); setBulkDialog(null); setBulkError(""); setNotice("");
     }
     window.addEventListener(STORAGE_RESTORED_EVENT, restored);
     return () => window.removeEventListener(STORAGE_RESTORED_EVENT, restored);
@@ -74,6 +83,7 @@ export function MemosPage() {
     if (!hydrated || cloud.loading || !canLeave()) return;
     const stamp = new Date().toISOString();
     const memo: Memo = { id: crypto.randomUUID(), title: "", content: "", tags: [], category: category === "すべて" ? memoCategories[0] : category as Memo["category"], createdAt: stamp, updatedAt: stamp };
+    setSelecting(false); setChecked(new Set()); setBulkDialog(null); setBulkError(""); setNotice("");
     setQuery(""); draftRef.current = memo; setDraft(memo); setOperationError(""); persist(memo);
   }
 
@@ -95,22 +105,60 @@ export function MemosPage() {
     if (items.some((item) => item.id === draft.id) && !remove(draft.id)) { setOperationError("削除できませんでした。端末の保存領域を確認して再度お試しください。"); return; }
     persistedIds.current.delete(draft.id); pendingDraft.current = null;
     draftRef.current = null; setDraft(null); setSaveFailed(false); setFocused(false); setOperationError("");
+    setSelecting(false); setChecked(new Set()); setNotice("");
+  }
+
+  function openBulk(kind: "move" | "delete") {
+    if (!ready || !selectedVisible.length || !canLeave()) return;
+    setBulkError(""); setBulkDialog({ kind, ids: selectedVisible.map((memo) => memo.id) });
+  }
+
+  function applyBulk(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!bulkDialog || !batch.length || !canLeave()) return;
+    const destination = String(new FormData(event.currentTarget).get("category") ?? "");
+    if (bulkDialog.kind === "move" && !memoCategories.some((value) => value === destination)) {
+      setBulkError("移動先のカテゴリを選んでください。"); return;
+    }
+    const ids = new Set(batch.map((memo) => memo.id));
+    const stamp = new Date().toISOString();
+    const saved = update((current) => bulkDialog.kind === "delete" ? current.filter((memo) => !ids.has(memo.id)) : current.map((memo) => ids.has(memo.id) ? { ...memo, category: destination as Memo["category"], updatedAt: stamp } : memo));
+    if (!saved) { setBulkError("保存できませんでした。端末の保存領域を確認して再度お試しください。"); return; }
+    const current = draftRef.current;
+    if (current && ids.has(current.id)) {
+      if (bulkDialog.kind === "delete") {
+        draftRef.current = null; setDraft(null); pendingDraft.current = null; setSaveFailed(false); setFocused(false);
+      } else {
+        const next = { ...current, category: destination as Memo["category"], updatedAt: stamp };
+        draftRef.current = next; setDraft(next);
+      }
+    }
+    if (bulkDialog.kind === "delete") ids.forEach((id) => persistedIds.current.delete(id));
+    setNotice(bulkDialog.kind === "delete" ? `${batch.length}件のメモを削除しました。` : `${batch.length}件を「${destination}」に移動しました。`);
+    setBulkDialog(null); setBulkError(""); setSelecting(false); setChecked(new Set()); setOperationError("");
+  }
+
+  function memoSummary(memo: Memo) {
+    return <><span className="memo-list-title">{memo.title || "無題のメモ"}</span>{memo.tags.length > 0 && <span className="memo-list-tags">{memo.tags.map((tag) => <span key={tag}><Hash size={11} />{tag}</span>)}</span>}</>;
   }
 
   return <div className="memos-page">
     <PageHeader title="メモ" onAdd={hydrated && !cloud.loading ? createMemo : undefined} />
     {cloud.loading && <p className="muted" role="status">保存済みのメモを確認しています…</p>}
-    <div ref={workspace} className={`memo-workspace${draft ? " has-selection" : ""}${focused ? " is-focused" : ""}`}>
+    <div ref={workspace} className={`memo-workspace${draft ? " has-selection" : ""}${focused ? " is-focused" : ""}${selecting ? " is-selecting" : ""}`}>
       <aside className="memo-sidebar" aria-label="メモ一覧">
         <div className="memo-filters">
-          <label className="search-box"><Search size={18} /><span className="sr-only">メモを検索</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="タイトル・本文・タグを検索" /></label>
-          <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="カテゴリで絞り込み"><option>すべて</option>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select>
+          <label className="search-box"><Search size={18} /><span className="sr-only">メモを検索</span><input value={query} onChange={(event) => { setQuery(event.target.value); setChecked(new Set()); setNotice(""); }} placeholder="タイトル・本文・タグを検索" /></label>
+          <select value={category} onChange={(event) => { setCategory(event.target.value); setChecked(new Set()); setNotice(""); }} aria-label="カテゴリで絞り込み"><option>すべて</option>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select>
         </div>
-        <div className="memo-list-heading"><h2>メモ一覧</h2><span>{hydrated ? `${filtered.length}件` : "読込中…"}</span></div>
-        <SortableList items={filtered} label="メモの並び順" className="memo-compact-list" getLabel={(memo) => memo.title || "無題のメモ"} onMove={reorder} disabled={cloud.loading || saveFailed}>{(memo) => <button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>
-          <span className="memo-list-title">{memo.title || "無題のメモ"}</span>
-          {memo.tags.length > 0 && <span className="memo-list-tags">{memo.tags.map((tag) => <span key={tag}><Hash size={11} />{tag}</span>)}</span>}
-        </button>}</SortableList>
+        <div className="memo-list-heading"><h2>メモ一覧</h2><span>{hydrated ? `${filtered.length}件` : "読込中…"}</span><button type="button" className="secondary-button memo-select-button" disabled={!ready || saveFailed} aria-pressed={selecting} onClick={() => { if (!canLeave()) return; setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={15} />{selecting ? "完了" : "選択"}</button></div>
+        {notice && <p className="memo-bulk-notice" role="status">{notice}</p>}
+        {selecting && <div className="memo-bulk-toolbar"><span>{selectedVisible.length}件を選択中</span>
+          <button type="button" className="secondary-button bulk-select-all" disabled={!filtered.length} onClick={() => setChecked(selectedVisible.length === filtered.length ? new Set() : new Set(filtered.map((memo) => memo.id)))}>{selectedVisible.length === filtered.length && filtered.length ? "選択をすべて解除" : "表示中をすべて選択"}</button>
+          <div className="memo-bulk-actions"><button type="button" className="secondary-button" disabled={!selectedVisible.length || saveFailed} onClick={() => openBulk("move")}>カテゴリ移動</button><button type="button" className="danger-button" disabled={!selectedVisible.length || saveFailed} onClick={() => openBulk("delete")}>メモ削除</button></div>
+        </div>}
+        {selecting ? <ul className="memo-selection-list" aria-label="メモを選択">{filtered.map((memo) => <li key={memo.id}><label className={`memo-selection-row${checked.has(memo.id) ? " checked" : ""}`}><input type="checkbox" className="selection-circle" aria-label={`${memo.title || "無題のメモ"}を選択`} checked={checked.has(memo.id)} onChange={(event) => { const next = new Set(checked); if (event.target.checked) next.add(memo.id); else next.delete(memo.id); setChecked(next); }} /><span className="memo-list-item memo-selection-content">{memoSummary(memo)}</span></label></li>)}</ul> :
+          <SortableList items={filtered} label="メモの並び順" className="memo-compact-list" getLabel={(memo) => memo.title || "無題のメモ"} onMove={reorder} disabled={cloud.loading || saveFailed}>{(memo) => <button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>{memoSummary(memo)}</button>}</SortableList>}
         {hydrated && !filtered.length && <EmptyState title={items.length ? "該当するメモはありません" : "メモを残しましょう"} description={items.length ? "検索条件を変更してください。" : "「＋ 追加」から書き始められます。"} />}
       </aside>
       <section className="memo-editor-pane" aria-label="メモ編集">
@@ -131,6 +179,12 @@ export function MemosPage() {
         </> : <div className="memo-editor-empty"><NotebookPen size={36} /><h2>メモを選んで、書き始める</h2><p>左の一覧から選ぶか、新しいメモを追加してください。</p><button type="button" className="primary-button" onClick={createMemo} disabled={!hydrated || cloud.loading}>＋ メモを追加</button></div>}
       </section>
     </div>
+    {bulkDialog && <Modal title={bulkDialog.kind === "move" ? "カテゴリ移動" : `${batch.length}件のメモを削除しますか？`} onClose={() => { setBulkDialog(null); setBulkError(""); }}><form className="company-form" onSubmit={applyBulk}>
+      {bulkError && <p className="error-message" role="alert">{bulkError}</p>}
+      <ul className="company-batch-names">{batch.map((memo) => <li key={memo.id}>{memo.title || "無題のメモ"}</li>)}</ul>
+      {bulkDialog.kind === "move" ? <FormField label="移動先" htmlFor="memo-move-category"><select id="memo-move-category" name="category" defaultValue={memoCategories.find((value) => value !== category) ?? memoCategories[0]}>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select></FormField> : <p className="muted">選択したメモを削除します。この操作は取り消せません。</p>}
+      <div className="company-form-actions"><button type="button" className="secondary-button" onClick={() => { setBulkDialog(null); setBulkError(""); }}>キャンセル</button><button disabled={!batch.length || saveFailed} className={bulkDialog.kind === "move" ? "primary-button" : "danger-button"}>{bulkDialog.kind === "move" ? "移動する" : "メモを削除する"}</button></div>
+    </form></Modal>}
   </div>;
 }
 
