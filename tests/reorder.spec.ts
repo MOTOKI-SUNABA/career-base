@@ -24,7 +24,7 @@ async function seed(page: Page) {
 }
 
 async function savedIds(page: Page, key: string) {
-  return page.evaluate((key) => (JSON.parse(localStorage.getItem(key) || "[]") as { id: string }[]).map((item) => item.id), key);
+  return page.evaluate((key) => { const data = JSON.parse(localStorage.getItem(key) || "[]"); return ((Array.isArray(data) ? data : data.companies) as { id: string }[]).map((item) => item.id); }, key);
 }
 
 async function dragRow(page: Page, from: Locator, to: Locator) {

@@ -1,95 +1,190 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import { ChevronRight, MapPin, Pencil, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ChevronRight, Folder, ListFilter, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
 import { SortableList } from "./sortable-list";
-import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
+import { CompanyForm } from "./company-form";
+import { useCompanyWorkspace } from "@/hooks/use-company-workspace";
+import { useCloudSync } from "./cloud-sync-provider";
+import { STORAGE_RESTORED_EVENT } from "@/lib/cloud-sync";
 import { formatDate, todayKey } from "@/lib/date";
-import { STORAGE_KEYS } from "@/lib/storage";
-import { industries, interestLevels, selectionStatuses, type Company } from "@/types";
+import type { Company, CompanyList } from "@/types";
+import { selectionStatuses } from "@/types";
+
+const ALL = "__all";
+const UNFILED = "__unfiled";
+type Dialog = { kind: "add" } | { kind: "detail" | "edit" | "list-settings" | "list-delete"; id: string } | { kind: "new-list" } | { kind: "move" | "bulk-delete"; ids: string[] } | null;
 
 export function CareerPage() {
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Company | null>(null);
-  const [error, setError] = useState("");
+  const { companies, lists, hydrated, update, reorder } = useCompanyWorkspace();
+  const cloud = useCloudSync();
+  const [activeList, setActiveList] = useState(ALL);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("すべて");
-  const [selected, setSelected] = useState<Company | null>(null);
-  const { items, add, remove, replace, reorder } = useLocalStorageCollection<Company>(STORAGE_KEYS.companies);
-  const filtered = useMemo(() => items.filter((company) => company.name.toLowerCase().includes(query.toLowerCase()) && (status === "すべて" || company.selectionStatus === status)), [items, query, status]);
-  const industryOptions = editing?.industry && !industries.some((industry) => industry === editing.industry) ? [editing.industry, ...industries] : industries;
+  const [selecting, setSelecting] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const ready = hydrated && !cloud.loading;
+  const knownListIds = useMemo(() => new Set(lists.map((list) => list.id)), [lists]);
+  const membership = (company: Company) => company.listId && knownListIds.has(company.listId) ? company.listId : UNFILED;
+  const activeName = activeList === ALL ? "すべて" : activeList === UNFILED ? "未分類" : lists.find((list) => list.id === activeList)?.name ?? "すべて";
+  const filtered = companies.filter((company) => (activeList === ALL || membership(company) === activeList)
+    && company.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (status === "すべて" || company.selectionStatus === status));
+  const selectedVisible = filtered.filter((company) => checked.has(company.id));
+  const company = dialog && "id" in dialog && ["detail", "edit"].includes(dialog.kind) ? companies.find((company) => company.id === dialog.id) : undefined;
+  const currentList = dialog && "id" in dialog && dialog.kind.startsWith("list-") ? lists.find((list) => list.id === dialog.id) : undefined;
+  const batch = dialog && "ids" in dialog ? companies.filter((company) => dialog.ids.includes(company.id)) : [];
 
-  function openAddForm() { setEditing(null); setError(""); setFormOpen(true); }
-  function openEditForm(company: Company) { setSelected(null); setEditing(company); setError(""); setFormOpen(true); }
-  function closeForm() { setFormOpen(false); setEditing(null); setError(""); }
-  function submit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    const refresh = () => { setDialog(null); setChecked(new Set()); setSelecting(false); setActiveList(ALL); setError(""); setNotice(""); };
+    window.addEventListener(STORAGE_RESTORED_EVENT, refresh);
+    return () => window.removeEventListener(STORAGE_RESTORED_EVENT, refresh);
+  }, []);
+
+  function openDialog(value: Dialog) { setError(""); setNotice(""); setDialog(value); }
+  function closeDialog() { setDialog(null); setError(""); }
+  function chooseList(id: string) { setActiveList(id); setChecked(new Set()); setNotice(""); }
+  function finish(message: string) { closeDialog(); setChecked(new Set()); setSelecting(false); setNotice(message); }
+  function failed() { setError("保存できませんでした。端末の保存領域を確認して再度お試しください。"); }
+
+  function saveCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget); const name = String(form.get("name") ?? "").trim();
-    if (!name) return setError("企業名を入力してください。");
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "").trim();
+    if (!name) { setError("企業名を入力してください。"); return; }
+    const listId = String(form.get("listId") ?? "");
+    if (listId && !knownListIds.has(listId)) { setError("所属リストを選び直してください。"); return; }
     const stamp = new Date().toISOString();
     const value: Company = {
-      id: editing?.id ?? crypto.randomUUID(), name, industry: String(form.get("industry")) || undefined,
-      desiredRole: String(form.get("desiredRole")).trim() || undefined, interestLevel: String(form.get("interestLevel")) as Company["interestLevel"],
-      selectionStatus: String(form.get("selectionStatus")) as Company["selectionStatus"], entryDeadline: String(form.get("entryDeadline")) || undefined,
-      nextSelectionDate: String(form.get("nextSelectionDate")) || undefined, location: String(form.get("location")).trim() || undefined,
-      startingSalary: editing?.startingSalary, portalUrl: editing?.portalUrl, companyResearch: String(form.get("companyResearch")).trim() || undefined,
-      esNotes: editing?.esNotes, interviewNotes: editing?.interviewNotes, createdAt: editing?.createdAt ?? stamp, updatedAt: stamp,
+      ...company, id: company?.id ?? crypto.randomUUID(), name, listId: listId || undefined,
+      industry: String(form.get("industry") ?? "") || undefined,
+      desiredRole: String(form.get("desiredRole") ?? "").trim() || undefined,
+      interestLevel: String(form.get("interestLevel") ?? "未設定") as Company["interestLevel"],
+      selectionStatus: String(form.get("selectionStatus") ?? "検討中") as Company["selectionStatus"],
+      entryDeadline: String(form.get("entryDeadline") ?? "") || undefined,
+      nextSelectionDate: String(form.get("nextSelectionDate") ?? "") || undefined,
+      location: String(form.get("location") ?? "").trim() || undefined,
+      companyResearch: String(form.get("companyResearch") ?? "").trim() || undefined,
+      createdAt: company?.createdAt ?? stamp, updatedAt: stamp,
     };
-    const saved = editing ? replace(value) : add(value);
-    if (!saved) return setError("保存できませんでした。端末の保存領域を確認して再度お試しください。");
-    closeForm();
+    const saved = update((workspace) => ({ ...workspace, companies: company ? workspace.companies.map((item) => item.id === company.id ? { ...item, ...value } : item) : [value, ...workspace.companies] }));
+    if (!saved) { failed(); return; }
+    closeDialog();
   }
-  function deleteCompany(company: Company) { if (confirmDelete("この企業")) {
-    if (!remove(company.id)) { setError("削除できませんでした。端末の保存領域を確認して再度お試しください。"); return; }
-    setError(""); if (selected?.id === company.id) setSelected(null);
-  } }
+
+  function saveList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = String(new FormData(event.currentTarget).get("name") ?? "").trim();
+    if (!name || name.length > 40 || ["すべて", "未分類"].includes(name) || lists.some((list) => list.id !== currentList?.id && list.name === name)) {
+      setError("重複しないリスト名を40文字以内で入力してください。「すべて」「未分類」は使用できません。"); return;
+    }
+    const stamp = new Date().toISOString();
+    const value: CompanyList = { id: currentList?.id ?? crypto.randomUUID(), name, createdAt: currentList?.createdAt ?? stamp, updatedAt: stamp };
+    const saved = update((workspace) => ({ ...workspace, lists: currentList ? workspace.lists.map((list) => list.id === currentList.id ? value : list) : [...workspace.lists, value] }));
+    if (!saved) { failed(); return; }
+    setActiveList(value.id); finish(currentList ? "リスト名を変更しました。" : "リストを作成しました。");
+  }
+
+  function deleteList() {
+    if (!currentList) return;
+    const stamp = new Date().toISOString();
+    const saved = update((workspace) => ({ ...workspace,
+      lists: workspace.lists.filter((list) => list.id !== currentList.id),
+      companies: workspace.companies.map((company) => company.listId === currentList.id ? { ...company, listId: undefined, updatedAt: stamp } : company),
+    }));
+    if (!saved) { failed(); return; }
+    setActiveList(UNFILED); finish("リストを削除し、所属企業を未分類に戻しました。");
+  }
+
+  function moveCompanies(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!dialog || dialog.kind !== "move" || !batch.length) return;
+    const listId = String(new FormData(event.currentTarget).get("listId") ?? "");
+    if (listId && !knownListIds.has(listId)) { setError("移動先を選び直してください。"); return; }
+    const ids = new Set(dialog.ids); const stamp = new Date().toISOString();
+    const saved = update((workspace) => ({ ...workspace, companies: workspace.companies.map((company) => ids.has(company.id) ? { ...company, listId: listId || undefined, updatedAt: stamp } : company) }));
+    if (!saved) { failed(); return; }
+    finish(`${batch.length}社を「${lists.find((list) => list.id === listId)?.name ?? "未分類"}」に移動しました。`);
+  }
+
+  function deleteCompanies(ids: string[]) {
+    const targets = new Set(ids);
+    const saved = update((workspace) => ({ ...workspace, companies: workspace.companies.filter((company) => !targets.has(company.id)) }));
+    if (!saved) { failed(); return; }
+    finish(`${ids.length}社を削除しました。`);
+  }
+
+  function cells(value: Company) {
+    const date = companyListDate(value);
+    return <><span className="company-list-name" title={value.name}>{value.name}</span><span className="company-list-status"><StatusBadge tone="green">{value.selectionStatus}</StatusBadge></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : "日付なし"}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
+  }
 
   return <>
-    <PageHeader title="就活情報" onAdd={openAddForm} />
-    <div className="toolbar"><label className="search-box"><Search size={18} /><span className="sr-only">企業名を検索</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="企業名を検索" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="選考状況で絞り込み"><option>すべて</option>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></div>
-    <div className="section-heading"><h2>企業一覧</h2><span>{filtered.length}社</span></div>
-    {filtered.length ? <div className="company-list-surface">
-      <div className="company-list-columns" aria-hidden="true"><span>企業名</span><span>選考状況</span><span>日付</span><span /></div>
-      <SortableList items={filtered} label="企業一覧" className="company-list" getLabel={(company) => company.name} onMove={reorder}>{(company) => {
-        const date = companyListDate(company);
-        return <button type="button" className="company-list-row" aria-haspopup="dialog" onClick={() => { setError(""); setSelected(company); }}>
-          <span className="company-list-name" title={company.name}>{company.name}</span>
-          <span className="company-list-status"><StatusBadge tone="green">{company.selectionStatus}</StatusBadge></span>
-          <span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : "日付なし"}</span>
-          <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />
-        </button>;
-      }}</SortableList>
-    </div> : <EmptyState title="該当する企業はありません" description="検索条件を変更するか、企業を追加してください。" />}
+    <PageHeader title="就活情報" onAdd={ready ? () => openDialog({ kind: "add" }) : undefined} />
+    {cloud.loading && <p className="muted" role="status">保存済みの企業情報を確認しています…</p>}
+    <div className="career-workspace">
+      <aside className="career-sidebar" aria-label="企業リスト">
+        <div className="career-sidebar-heading"><h2><Folder size={16} />リスト</h2><button type="button" className="secondary-button" onClick={() => openDialog({ kind: "new-list" })} disabled={!ready}><Plus size={15} />リスト</button></div>
+        <label className="career-mobile-list-picker">表示リスト<select value={activeList} onChange={(event) => chooseList(event.target.value)}><option value={ALL}>すべて（{companies.length}）</option><option value={UNFILED}>未分類（{companies.filter((company) => membership(company) === UNFILED).length}）</option>{lists.map((list) => <option value={list.id} key={list.id}>{list.name}（{companies.filter((company) => company.listId === list.id).length}）</option>)}</select></label>
+        <nav className="career-list-nav" aria-label="企業リストの切り替え">
+          {[{ id: ALL, name: "すべて", count: companies.length }, { id: UNFILED, name: "未分類", count: companies.filter((company) => membership(company) === UNFILED).length }, ...lists.map((list) => ({ ...list, count: companies.filter((company) => company.listId === list.id).length }))].map((list) => <div className="career-list-nav-row" key={list.id}>
+            <button type="button" className={`career-list-link${activeList === list.id ? " active" : ""}`} onClick={() => chooseList(list.id)} aria-pressed={activeList === list.id}><span>{list.name}</span><span className="career-list-count">{list.count}</span></button>
+            {![ALL, UNFILED].includes(list.id) && <button type="button" className="career-list-settings" aria-label={`${list.name}の設定`} onClick={() => openDialog({ kind: "list-settings", id: list.id })}><MoreHorizontal size={17} /></button>}
+          </div>)}
+        </nav>
+        {![ALL, UNFILED].includes(activeList) && <button type="button" className="career-mobile-list-settings secondary-button" onClick={() => openDialog({ kind: "list-settings", id: activeList })}>このリストの設定</button>}
+      </aside>
+      <div className="career-main">
+        <div className="toolbar"><label className="search-box"><Search size={18} /><span className="sr-only">企業名を検索</span><input value={query} onChange={(event) => { setQuery(event.target.value); setChecked(new Set()); }} placeholder="企業名を検索" /></label><select value={status} onChange={(event) => { setStatus(event.target.value); setChecked(new Set()); }} aria-label="選考状況で絞り込み"><option>すべて</option>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></div>
+        <div className="career-section-heading"><h2>{activeName}<span>{filtered.length}社</span></h2><button type="button" className="secondary-button" disabled={!ready} aria-pressed={selecting} onClick={() => { setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={16} />{selecting ? "完了" : "選択"}</button></div>
+        {notice && <p className="career-notice" role="status">{notice}</p>}
+        {selecting && <div className="company-bulk-toolbar"><span>{selectedVisible.length}社を選択中</span><div>
+          <button type="button" className="secondary-button" disabled={!filtered.length} onClick={() => setChecked(selectedVisible.length === filtered.length ? new Set() : new Set(filtered.map((company) => company.id)))}>{selectedVisible.length === filtered.length && filtered.length ? "選択をすべて解除" : "表示中をすべて選択"}</button>
+          <button type="button" className="secondary-button" disabled={!selectedVisible.length} onClick={() => openDialog({ kind: "move", ids: selectedVisible.map((company) => company.id) })}>リスト移動</button>
+          <button type="button" className="danger-button" disabled={!selectedVisible.length} onClick={() => openDialog({ kind: "bulk-delete", ids: selectedVisible.map((company) => company.id) })}>企業削除</button>
+        </div></div>}
+        {filtered.length ? <div className={`company-list-surface${selecting ? " is-selecting" : ""}`}>
+          <div className="company-list-columns" aria-hidden="true"><span>企業名</span><span>選考状況</span><span>日付</span><span /></div>
+          {selecting ? <ul className="company-list company-selection-list" aria-label="企業を選択">{filtered.map((company) => <li key={company.id}><label className={`company-selection-row${checked.has(company.id) ? " checked" : ""}`}><input type="checkbox" className="company-circle" aria-label={`${company.name}を選択`} checked={checked.has(company.id)} onChange={(event) => { const next = new Set(checked); if (event.target.checked) next.add(company.id); else next.delete(company.id); setChecked(next); }} /><span className="company-selection-content">{cells(company)}</span></label></li>)}</ul> :
+            <SortableList items={filtered} label="企業一覧" className="company-list" getLabel={(company) => company.name} onMove={reorder} disabled={!ready}>{(company) => <button type="button" className="company-list-row" aria-haspopup="dialog" disabled={!ready} onClick={() => openDialog({ kind: "detail", id: company.id })}>{cells(company)}</button>}</SortableList>}
+        </div> : <EmptyState title={companies.length ? "該当する企業はありません" : "企業を登録しましょう"} description="検索条件を変更するか、企業を追加してください。" />}
+      </div>
+    </div>
 
-    {formOpen && <Modal title={editing ? "企業情報を編集" : "企業を追加"} onClose={closeForm}><form className="form-grid" onSubmit={submit} key={editing?.id ?? "new"}>
-      {error && <p className="error-message">{error}</p>}
-      <FormField label="企業名 *" htmlFor="company-name"><input id="company-name" name="name" defaultValue={editing?.name} autoFocus /></FormField>
-      <FormField label="業界" htmlFor="industry"><select id="industry" name="industry" defaultValue={editing?.industry ?? ""}><option value="">未設定</option>{industryOptions.map((industry) => <option key={industry}>{industry}</option>)}</select></FormField>
-      <FormField label="希望職種" htmlFor="role"><input id="role" name="desiredRole" defaultValue={editing?.desiredRole} /></FormField>
-      <FormField label="所在地" htmlFor="location"><input id="location" name="location" defaultValue={editing?.location} /></FormField>
-      <FormField label="志望度" htmlFor="interest"><select id="interest" name="interestLevel" defaultValue={editing?.interestLevel ?? "未設定"}>{interestLevels.map((level) => <option key={level}>{level}</option>)}</select></FormField>
-      <FormField label="選考状況" htmlFor="status"><select id="status" name="selectionStatus" defaultValue={editing?.selectionStatus ?? "検討中"}>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></FormField>
-      <FormField label="エントリー締切" htmlFor="deadline"><input id="deadline" name="entryDeadline" type="date" defaultValue={editing?.entryDeadline} /></FormField>
-      <FormField label="次回選考日" htmlFor="next-date"><input id="next-date" name="nextSelectionDate" type="date" defaultValue={editing?.nextSelectionDate} /></FormField>
-      <div className="form-field full"><FormField label="企業研究メモ" htmlFor="research"><textarea id="research" name="companyResearch" defaultValue={editing?.companyResearch} /></FormField></div>
-      <div className="form-actions"><button type="button" className="secondary-button" onClick={closeForm}>キャンセル</button><button className="primary-button">{editing ? "変更を保存" : "登録する"}</button></div>
+    {(dialog?.kind === "add" || (dialog?.kind === "edit" && company)) && <Modal title={company ? "企業情報を編集" : "企業を追加"} onClose={closeDialog}><CompanyForm key={company?.id ?? "new"} company={company} lists={lists} defaultListId={knownListIds.has(activeList) ? activeList : ""} error={error} onSubmit={saveCompany} onClose={closeDialog} /></Modal>}
+
+    {dialog?.kind === "detail" && company && <Modal title={company.name} onClose={closeDialog}><div className="detail-stack">
+      {error && <p className="error-message" role="alert">{error}</p>}
+      <div className="detail-header"><div className="meta-row"><StatusBadge tone="blue">{company.selectionStatus}</StatusBadge><StatusBadge tone="green">志望度 {company.interestLevel}</StatusBadge></div><button className="secondary-button" onClick={() => openDialog({ kind: "edit", id: company.id })}><Pencil size={16} />編集する</button></div>
+      <dl className="detail-list"><div><dt>所属リスト</dt><dd>{lists.find((list) => list.id === company.listId)?.name ?? "未分類"}</dd></div><div><dt>業界</dt><dd>{company.industry || "未設定"}</dd></div><div><dt>希望職種</dt><dd>{company.desiredRole || "未設定"}</dd></div><div><dt>エントリー締切</dt><dd>{formatDate(company.entryDeadline)}</dd></div><div><dt>次回選考日</dt><dd>{formatDate(company.nextSelectionDate)}</dd></div>{company.location && <div><dt>所在地</dt><dd>{company.location}</dd></div>}</dl>
+      <section><h3>企業研究メモ</h3><p>{company.companyResearch || "まだメモはありません。"}</p></section><div className="company-detail-delete"><button type="button" className="danger-button" onClick={() => { if (confirmDelete("この企業")) deleteCompanies([company.id]); }}><Trash2 size={16} />この企業を削除</button></div>
+    </div></Modal>}
+
+    {(dialog?.kind === "new-list" || (dialog?.kind === "list-settings" && currentList)) && <Modal title={currentList ? "リストの設定" : "リストを作成"} onClose={closeDialog}><form className="company-form" onSubmit={saveList} key={currentList?.id ?? "new-list"}>
+      {error && <p className="error-message" role="alert">{error}</p>}
+      <FormField label="リスト名" htmlFor="list-name"><input id="list-name" name="name" defaultValue={currentList?.name} maxLength={40} placeholder="例：エントリー予定" required autoFocus /></FormField>
+      <div className="company-form-actions"><button type="button" className="secondary-button" onClick={closeDialog}>キャンセル</button><button className="primary-button">{currentList ? "変更を保存" : "作成する"}</button></div>
+      {currentList && <button type="button" className="danger-button" onClick={() => openDialog({ kind: "list-delete", id: currentList.id })}>このリストを削除</button>}
     </form></Modal>}
 
-    {selected && <Modal title={selected.name} onClose={() => { setSelected(null); setError(""); }}><div className="detail-stack">
+    {dialog?.kind === "list-delete" && currentList && <Modal title="リストを削除" onClose={closeDialog}><div className="company-form">
       {error && <p className="error-message" role="alert">{error}</p>}
-      <div className="detail-header"><div className="meta-row"><StatusBadge tone="blue">{selected.selectionStatus}</StatusBadge><StatusBadge tone="green">志望度 {selected.interestLevel}</StatusBadge></div><button className="secondary-button" onClick={() => openEditForm(selected)}><Pencil size={16} />編集する</button></div><dl className="detail-list"><div><dt>業界</dt><dd>{selected.industry || "未設定"}</dd></div><div><dt>希望職種</dt><dd>{selected.desiredRole || "未設定"}</dd></div><div><dt>エントリー締切</dt><dd>{formatDate(selected.entryDeadline)}</dd></div><div><dt>次回選考日</dt><dd>{formatDate(selected.nextSelectionDate)}</dd></div>{selected.location && <div><dt>所在地</dt><dd><MapPin size={14} />{selected.location}</dd></div>}</dl><section><h3>企業研究メモ</h3><p>{selected.companyResearch || "まだメモはありません。"}</p></section>
-      <div className="company-detail-delete"><button type="button" className="danger-button" onClick={() => deleteCompany(selected)}><Trash2 size={16} />この企業を削除</button></div>
+      <p>「{currentList.name}」を削除します。所属する{companies.filter((company) => company.listId === currentList.id).length}社は未分類に戻ります。</p><div className="company-form-actions"><button type="button" className="secondary-button" onClick={closeDialog}>キャンセル</button><button type="button" className="danger-button" onClick={deleteList}>リストを削除する</button></div>
     </div></Modal>}
+
+    {(dialog?.kind === "move" || dialog?.kind === "bulk-delete") && <Modal title={dialog.kind === "move" ? "リスト移動" : `${batch.length}社を削除しますか？`} onClose={closeDialog}><form className="company-form" onSubmit={(event) => { if (dialog.kind === "move") moveCompanies(event); else { event.preventDefault(); deleteCompanies(batch.map((company) => company.id)); } }}>
+      {error && <p className="error-message" role="alert">{error}</p>}
+      <ul className="company-batch-names">{batch.map((company) => <li key={company.id}>{company.name}</li>)}</ul>
+      {dialog.kind === "move" ? <FormField label="移動先" htmlFor="move-list"><select id="move-list" name="listId" defaultValue={lists.find((list) => list.id !== activeList)?.id ?? ""}><option value="">未分類</option>{lists.map((list) => <option key={list.id} value={list.id}>{list.name}</option>)}</select></FormField> : <p className="muted">企業情報と企業研究メモを削除します。この操作は取り消せません。</p>}
+      <div className="company-form-actions"><button type="button" className="secondary-button" onClick={closeDialog}>キャンセル</button><button disabled={!batch.length} className={dialog.kind === "move" ? "primary-button" : "danger-button"}>{dialog.kind === "move" ? "移動する" : "企業を削除する"}</button></div>
+    </form></Modal>}
   </>;
 }
 
 function companyListDate(company: Company) {
-  const dates = [
-    ...(company.entryDeadline ? [{ label: "締切", value: company.entryDeadline }] : []),
-    ...(company.nextSelectionDate ? [{ label: "次回", value: company.nextSelectionDate }] : []),
-  ].sort((a, b) => a.value.localeCompare(b.value));
-  // Show the nearest upcoming date; keep the latest past date if neither is upcoming.
-  const today = todayKey();
-  return dates.find((date) => date.value >= today) ?? dates.at(-1);
+  const dates = [...(company.entryDeadline ? [{ label: "締切", value: company.entryDeadline }] : []), ...(company.nextSelectionDate ? [{ label: "次回", value: company.nextSelectionDate }] : [])].sort((a, b) => a.value.localeCompare(b.value));
+  return dates.find((date) => date.value >= todayKey()) ?? dates.at(-1);
 }

@@ -47,7 +47,7 @@ test("search, filter, edit and delete work without dropping existing company fie
   await page.getByRole("textbox", { name: "企業名 *", exact: true }).fill("青葉テック更新");
   await page.getByRole("button", { name: "変更を保存", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("career-base-companies") || "[]")[0]);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("career-base-companies") || "{}").companies[0]);
   expect(saved).toMatchObject({ ...company, name: "青葉テック更新", updatedAt: expect.any(String) });
   await page.locator(".company-list-row").click();
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -57,7 +57,7 @@ test("search, filter, edit and delete work without dropping existing company fie
   await page.getByRole("button", { name: "この企業を削除", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("該当する企業はありません", { exact: true })).toBeVisible();
-  const remaining = await page.evaluate(() => JSON.parse(localStorage.getItem("career-base-companies") || "[]"));
+  const remaining = await page.evaluate(() => JSON.parse(localStorage.getItem("career-base-companies") || "{}").companies);
   expect(remaining).toHaveLength(3);
 });
 

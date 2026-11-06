@@ -17,6 +17,7 @@ export function MemosPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("すべて");
   const [draft, setDraft] = useState<Memo | null>(null);
+  const draftRef = useRef<Memo | null>(null);
   const [focused, setFocused] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [operationError, setOperationError] = useState("");
@@ -31,7 +32,7 @@ export function MemosPage() {
 
   useEffect(() => {
     function restored() {
-      pendingDraft.current = null; persistedIds.current.clear();
+      pendingDraft.current = null; persistedIds.current.clear(); draftRef.current = null;
       setDraft(null); setSaveFailed(false); setOperationError(""); setFocused(false);
     }
     window.addEventListener(STORAGE_RESTORED_EVENT, restored);
@@ -65,7 +66,7 @@ export function MemosPage() {
 
   function openMemo(memo: Memo) {
     if (cloud.loading || !canLeave()) return;
-    setDraft(memo); setOperationError("");
+    draftRef.current = memo; setDraft(memo); setOperationError("");
     if (window.matchMedia("(max-width: 759px)").matches) workspace.current?.scrollIntoView({ block: "start" });
   }
 
@@ -73,25 +74,27 @@ export function MemosPage() {
     if (!hydrated || cloud.loading || !canLeave()) return;
     const stamp = new Date().toISOString();
     const memo: Memo = { id: crypto.randomUUID(), title: "", content: "", tags: [], category: category === "すべて" ? memoCategories[0] : category as Memo["category"], createdAt: stamp, updatedAt: stamp };
-    setQuery(""); setDraft(memo); setOperationError(""); persist(memo);
+    setQuery(""); draftRef.current = memo; setDraft(memo); setOperationError(""); persist(memo);
   }
 
-  function changeMemo(patch: Partial<Pick<Memo, "title" | "content" | "richContent" | "category" | "tags">>) {
-    if (!draft) return;
-    const next = { ...draft, ...patch };
-    setDraft(next); persist(next);
+  function changeMemo(id: string, patch: Partial<Pick<Memo, "title" | "content" | "richContent" | "category" | "tags">>) {
+    // Late editor events must never switch a newly created note back to the old one.
+    const current = draftRef.current;
+    if (!current || current.id !== id) return;
+    const next = { ...current, ...patch };
+    draftRef.current = next; setDraft(next); persist(next);
   }
 
   function backToList() {
     if (!canLeave()) return;
-    setDraft(null); setFocused(false);
+    draftRef.current = null; setDraft(null); setFocused(false);
   }
 
   function deleteMemo() {
     if (!draft || !confirmDelete("このメモ")) return;
     if (items.some((item) => item.id === draft.id) && !remove(draft.id)) { setOperationError("削除できませんでした。端末の保存領域を確認して再度お試しください。"); return; }
     persistedIds.current.delete(draft.id); pendingDraft.current = null;
-    setDraft(null); setSaveFailed(false); setFocused(false); setOperationError("");
+    draftRef.current = null; setDraft(null); setSaveFailed(false); setFocused(false); setOperationError("");
   }
 
   return <div className="memos-page">
@@ -120,11 +123,11 @@ export function MemosPage() {
           <div className="memo-save-state" role="status">{saveFailed ? <span className="memo-save-error">この端末に保存できませんでした。<button type="button" onClick={() => persist(draft)}>再試行</button></span> : <span>この端末に自動保存済み</span>}</div>
           {operationError && <p className="error-message" role="alert">{operationError}</p>}
           <div className="memo-document-meta">
-            <label className="sr-only" htmlFor="memo-title">タイトル</label><input key={draft.id} id="memo-title" autoFocus={!draft.title} className="memo-title-input" value={draft.title} onChange={(event) => changeMemo({ title: event.target.value })} placeholder="無題のメモ" />
-            <div className="memo-metadata-fields"><label>カテゴリ<select value={draft.category} onChange={(event) => changeMemo({ category: event.target.value as Memo["category"] })}>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select></label>
-              <MemoTags key={draft.id} tags={draft.tags} onChange={(tags) => changeMemo({ tags })} /></div>
+            <label className="sr-only" htmlFor="memo-title">タイトル</label><input key={draft.id} id="memo-title" autoFocus={!draft.title} className="memo-title-input" value={draft.title} onChange={(event) => changeMemo(draft.id, { title: event.target.value })} placeholder="無題のメモ" />
+            <div className="memo-metadata-fields"><label>カテゴリ<select value={draft.category} onChange={(event) => changeMemo(draft.id, { category: event.target.value as Memo["category"] })}>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select></label>
+              <MemoTags key={draft.id} tags={draft.tags} onChange={(tags) => changeMemo(draft.id, { tags })} /></div>
           </div>
-          <MemoEditor key={draft.id} memo={draft} onChange={(content, richContent) => changeMemo({ content, richContent })} />
+          <MemoEditor key={draft.id} memo={draft} onChange={(content, richContent) => changeMemo(draft.id, { content, richContent })} />
         </> : <div className="memo-editor-empty"><NotebookPen size={36} /><h2>メモを選んで、書き始める</h2><p>左の一覧から選ぶか、新しいメモを追加してください。</p><button type="button" className="primary-button" onClick={createMemo} disabled={!hydrated || cloud.loading}>＋ メモを追加</button></div>}
       </section>
     </div>

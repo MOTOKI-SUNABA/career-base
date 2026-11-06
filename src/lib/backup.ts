@@ -1,5 +1,6 @@
-import type { CalendarEvent, Company, Memo, Todo } from "@/types";
+import type { CalendarEvent, Company, CompanyList, Memo, Todo } from "@/types";
 import { STORAGE_KEYS, readStorage } from "./storage";
+import { isCompanyListArray, readCompanyWorkspace, writeCompanyWorkspace } from "./company-workspace";
 
 export interface CareerBaseBackup {
   app: "career-base";
@@ -9,6 +10,7 @@ export interface CareerBaseBackup {
     events: CalendarEvent[];
     todos: Todo[];
     companies: Company[];
+    companyLists?: CompanyList[];
     memos: Memo[];
   };
 }
@@ -23,7 +25,8 @@ function isBaseItem(value: unknown): value is Record<string, unknown> {
 
 function isBackup(value: unknown): value is CareerBaseBackup {
   if (!isRecord(value) || value.app !== "career-base" || value.version !== 1 || !isRecord(value.data)) return false;
-  const { events, todos, companies, memos } = value.data;
+  const { events, todos, companies, memos, companyLists } = value.data;
+  if (companyLists !== undefined && !isCompanyListArray(companyLists)) return false;
   if (!Array.isArray(events) || !Array.isArray(todos) || !Array.isArray(companies) || !Array.isArray(memos)) return false;
   return events.every((item) => isBaseItem(item) && typeof item.title === "string" && typeof item.date === "string")
     && todos.every((item) => isBaseItem(item) && typeof item.title === "string" && typeof item.completed === "boolean")
@@ -32,6 +35,7 @@ function isBackup(value: unknown): value is CareerBaseBackup {
 }
 
 export function createBackup(): CareerBaseBackup {
+  const workspace = readCompanyWorkspace();
   return {
     app: "career-base",
     version: 1,
@@ -39,7 +43,8 @@ export function createBackup(): CareerBaseBackup {
     data: {
       events: readStorage<CalendarEvent>(STORAGE_KEYS.events, []),
       todos: readStorage<Todo>(STORAGE_KEYS.todos, []),
-      companies: readStorage<Company>(STORAGE_KEYS.companies, []),
+      companies: workspace.companies,
+      companyLists: workspace.lists,
       memos: readStorage<Memo>(STORAGE_KEYS.memos, []),
     },
   };
@@ -54,7 +59,7 @@ export function restoreBackup(backup: CareerBaseBackup): boolean {
   try {
     window.localStorage.setItem(STORAGE_KEYS.events, JSON.stringify(backup.data.events));
     window.localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(backup.data.todos));
-    window.localStorage.setItem(STORAGE_KEYS.companies, JSON.stringify(backup.data.companies));
+    if (!writeCompanyWorkspace({ version: 1, companies: backup.data.companies, lists: backup.data.companyLists ?? [] })) return false;
     window.localStorage.setItem(STORAGE_KEYS.memos, JSON.stringify(backup.data.memos));
     return true;
   } catch { return false; }

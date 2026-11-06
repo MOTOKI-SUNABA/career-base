@@ -1,5 +1,7 @@
 import type { CareerBaseBackup } from "@/lib/backup";
 import { clearCareerBaseData, createBackup, parseBackup, restoreBackup } from "@/lib/backup";
+import { parseCompanyWorkspace } from "@/lib/company-workspace";
+import type { CompanyWorkspace } from "@/types";
 
 const SESSION_KEY = "career-base-cloud-session";
 const DIRTY_KEY = "career-base-cloud-dirty";
@@ -19,7 +21,7 @@ interface CloudRecord {
   user_id: string;
   events: CareerBaseBackup["data"]["events"];
   todos: CareerBaseBackup["data"]["todos"];
-  companies: CareerBaseBackup["data"]["companies"];
+  companies: CareerBaseBackup["data"]["companies"] | CompanyWorkspace;
   memos: CareerBaseBackup["data"]["memos"];
   updated_at: string;
 }
@@ -229,10 +231,12 @@ export async function uploadLocalData(): Promise<string> {
   const session = await getCloudSession();
   if (!session || !supabaseUrl) throw new Error("先にログインしてください。");
   const backup = createBackup();
+  const { companyLists, ...data } = backup.data;
   const response = await fetch(`${supabaseUrl}/rest/v1/career_base_data?on_conflict=user_id`, {
     method: "POST",
     headers: { ...headers(session.access_token), Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ user_id: session.user.id, ...backup.data, updated_at: new Date().toISOString() }),
+    // The existing JSONB column holds both companies and their list catalog.
+    body: JSON.stringify({ user_id: session.user.id, ...data, companies: { version: 1, companies: data.companies, lists: companyLists ?? [] }, updated_at: new Date().toISOString() }),
   });
   if (!response.ok) throw new Error("クラウドへ保存できませんでした。SupabaseのSQL設定を確認してください。");
   window.localStorage.removeItem(DIRTY_KEY);
@@ -244,11 +248,13 @@ export async function downloadCloudData(): Promise<{ found: boolean; message: st
   if (!session) throw new Error("先にログインしてください。");
   const record = await readCloudRecord(session);
   if (!record) return { found: false, message: "クラウドに保存済みのデータはありません。" };
+  const workspace = parseCompanyWorkspace(record.companies);
+  if (!workspace) throw new Error("クラウドの企業データを読み込めませんでした。");
   const backup = parseBackup(JSON.stringify({
     app: "career-base",
     version: 1,
     exportedAt: record.updated_at,
-    data: { events: record.events, todos: record.todos, companies: record.companies, memos: record.memos },
+    data: { events: record.events, todos: record.todos, companies: workspace.companies, companyLists: workspace.lists, memos: record.memos },
   }));
   if (!backup || !restoreBackup(backup)) throw new Error("クラウドデータをこの端末へ保存できませんでした。");
   window.localStorage.removeItem(DIRTY_KEY);

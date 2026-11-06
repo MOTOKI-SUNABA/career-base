@@ -157,3 +157,23 @@ test("backup roundtrip preserves rich content and unsafe links are rejected", as
   await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   await expect(body.locator("a")).toHaveAttribute("href", "https://example.com");
 });
+
+test("new memo works from an open editor, focus mode and mobile without overwriting the old memo", async ({ page }) => {
+  await page.getByRole("textbox", { name: "メモ本文" }).fill("元のメモに残す本文");
+  await page.getByRole("button", { name: "一覧を閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "＋ 追加", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "タイトル", exact: true })).toHaveValue("");
+  await expect(page.getByRole("textbox", { name: "メモ本文" })).toBeEmpty();
+  await page.getByRole("textbox", { name: "タイトル", exact: true }).fill("作成したメモ");
+  await page.getByRole("textbox", { name: "メモ本文" }).fill("新しい本文");
+  const notes = await savedNotes(page);
+  expect(notes.find((note) => note.id === "legacy")?.content).toBe("元のメモに残す本文");
+  expect(notes.find((note) => note.title === "作成したメモ")?.content).toBe("新しい本文");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("textbox", { name: "メモ本文" }).fill(Array(40).fill("長いメモの本文").join("\n"));
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.getByRole("button", { name: "＋ 追加", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "タイトル", exact: true })).toHaveValue("");
+  await expect(page.getByRole("textbox", { name: "メモ本文" })).toBeEmpty();
+  expect(await savedNotes(page)).toHaveLength(4);
+});
