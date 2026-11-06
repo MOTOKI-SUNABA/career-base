@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Hash, NotebookPen, PanelLeftClose, PanelLeftOpen, Search, Trash2 } from "lucide-react";
 import { EmptyState, PageHeader, confirmDelete } from "./ui";
 import { MemoEditor } from "./memo-editor";
+import { SortableList } from "./sortable-list";
 import { useCloudSync } from "./cloud-sync-provider";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
 import { STORAGE_KEYS } from "@/lib/storage";
@@ -12,7 +13,7 @@ import { memoCategories, type Memo } from "@/types";
 
 export function MemosPage() {
   const cloud = useCloudSync();
-  const { items, hydrated, add, remove, replace } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
+  const { items, hydrated, add, remove, replace, reorder } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("すべて");
   const [draft, setDraft] = useState<Memo | null>(null);
@@ -103,10 +104,10 @@ export function MemosPage() {
           <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="カテゴリで絞り込み"><option>すべて</option>{memoCategories.map((value) => <option key={value}>{value}</option>)}</select>
         </div>
         <div className="memo-list-heading"><h2>メモ一覧</h2><span>{hydrated ? `${filtered.length}件` : "読込中…"}</span></div>
-        <div className="memo-compact-list">{filtered.map((memo) => <button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} key={memo.id} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>
+        <SortableList items={filtered} label="メモの並び順" className="memo-compact-list" getLabel={(memo) => memo.title || "無題のメモ"} onMove={reorder} disabled={cloud.loading || saveFailed}>{(memo) => <button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>
           <span className="memo-list-title">{memo.title || "無題のメモ"}</span>
           {memo.tags.length > 0 && <span className="memo-list-tags">{memo.tags.map((tag) => <span key={tag}><Hash size={11} />{tag}</span>)}</span>}
-        </button>)}</div>
+        </button>}</SortableList>
         {hydrated && !filtered.length && <EmptyState title={items.length ? "該当するメモはありません" : "メモを残しましょう"} description={items.length ? "検索条件を変更してください。" : "「＋ 追加」から書き始められます。"} />}
       </aside>
       <section className="memo-editor-pane" aria-label="メモ編集">

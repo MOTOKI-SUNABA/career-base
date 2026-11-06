@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/memos");
   await page.evaluate((notes) => { localStorage.clear(); localStorage.setItem("career-base-memos", JSON.stringify(notes)); }, [legacyMemo, secondMemo]);
   await page.reload();
-  await page.getByRole("button", { name: "既存のメモ" }).click();
+  await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "メモ本文" })).toBeVisible();
 });
 
@@ -41,11 +41,11 @@ test("formatting and immediate autosave survive switching and reload", async ({ 
   const notes = await savedNotes(page);
   expect(notes[0].content).toBe("装飾する本文");
   expect(notes[0].richContent).toContain("font-size: 24px");
-  await page.getByRole("button", { name: "研究アイデア" }).click();
-  await page.getByRole("button", { name: "既存のメモ" }).click();
+  await page.getByRole("button", { name: "研究アイデア 研究", exact: true }).click();
+  await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   await expect(body.locator("strong")).toHaveText("装飾する本文");
   await page.reload();
-  await page.getByRole("button", { name: "既存のメモ" }).click();
+  await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   await expect(body.locator("strong")).toHaveText("装飾する本文");
   await expect(body.locator('span[style*="24px"]')).toHaveCount(1);
 });
@@ -58,7 +58,7 @@ test("Tab inserts whitespace, Shift+Tab removes it, and Escape leaves the editor
   await body.press("Shift+Tab");
   expect((await savedNotes(page))[0].content).toBe("本文");
   await body.press("Tab"); await body.pressSequentially("追記");
-  await page.reload(); await page.getByRole("button", { name: "既存のメモ" }).click();
+  await page.reload(); await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   expect(await body.textContent()).toBe("本文\t追記");
   await body.press("Escape");
   await expect(page.getByRole("combobox", { name: "書体", exact: true })).toBeFocused();
@@ -84,13 +84,13 @@ test("storage failure keeps the draft, blocks switching and allows retry", async
   });
   const title = page.getByRole("textbox", { name: "タイトル", exact: true });
   await title.fill("未保存の変更");
-  await expect(page.getByRole("status")).toContainText("保存できませんでした");
-  await page.getByRole("button", { name: "研究アイデア" }).click();
+  await expect(page.locator(".memo-save-state")).toContainText("保存できませんでした");
+  await page.getByRole("button", { name: "研究アイデア 研究", exact: true }).click();
   await expect(title).toHaveValue("未保存の変更");
   expect((await savedNotes(page))[0].title).toBe("既存のメモ");
   await page.evaluate(() => sessionStorage.setItem("allow-save", "true"));
   await page.getByRole("button", { name: "再試行", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("自動保存済み");
+  await expect(page.locator(".memo-save-state")).toContainText("自動保存済み");
   expect((await savedNotes(page))[0].title).toBe("未保存の変更");
 });
 
@@ -103,7 +103,7 @@ test("mobile uses one screen at a time without horizontal overflow", async ({ pa
   await page.getByRole("button", { name: "一覧に戻る" }).click();
   await expect(page.getByRole("complementary", { name: "メモ一覧" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "メモ本文" })).toHaveCount(0);
-  await page.getByRole("button", { name: "研究アイデア" }).click();
+  await page.getByRole("button", { name: "研究アイデア 研究", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "タイトル", exact: true })).toHaveValue("研究アイデア");
   await page.setViewportSize({ width: 320, height: 640 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -154,6 +154,6 @@ test("backup roundtrip preserves rich content and unsafe links are rejected", as
   await page.locator('#backup-file').setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
   await expect(page.getByRole("status")).toContainText("データを復元しました");
   await page.getByRole("link", { name: "メモ", exact: true }).click();
-  await page.getByRole("button", { name: "既存のメモ" }).click();
+  await page.getByRole("button", { name: "既存のメモ 面接", exact: true }).click();
   await expect(body.locator("a")).toHaveAttribute("href", "https://example.com");
 });
