@@ -46,7 +46,7 @@ export function CalendarPage() {
   }
 
   return <>
-    <PageHeader title="カレンダー" description="授業・研究・就活の予定をひと目で確認" onAdd={openAddForm} />
+    <PageHeader title="カレンダー" onAdd={openAddForm} />
     <div className="content-columns">
       <section className="card calendar-card">
         <div className="month-controls">

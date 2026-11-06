@@ -7,4 +7,4 @@ export const selectionStatuses = ["検討中", "エントリー予定", "エン�
 export const industries = ["IT・ソフトウェア", "メーカー", "商社", "金融", "コンサルティング", "広告・出版・メディア", "人材・教育", "不動産・建設", "医療・福祉", "官公庁・団体", "その他"] as const;
 export interface Company { id: string; name: string; industry?: string; desiredRole?: string; interestLevel: (typeof interestLevels)[number]; selectionStatus: (typeof selectionStatuses)[number]; entryDeadline?: string; nextSelectionDate?: string; location?: string; startingSalary?: string; portalUrl?: string; companyResearch?: string; esNotes?: string; interviewNotes?: string; createdAt: string; updatedAt: string }
 export const memoCategories = ["通常メモ", "研究", "授業", "自己分析", "ES", "面接対策", "企業研究", "その他"] as const;
-export interface Memo { id: string; title: string; content: string; category: (typeof memoCategories)[number]; tags: string[]; companyId?: string; createdAt: string; updatedAt: string }
+export interface Memo { id: string; title: string; content: string; richContent?: string; category: (typeof memoCategories)[number]; tags: string[]; companyId?: string; createdAt: string; updatedAt: string }

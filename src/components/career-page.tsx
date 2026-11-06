@@ -40,7 +40,7 @@ export function CareerPage() {
   function deleteCompany(company: Company) { if (confirmDelete("この企業")) { remove(company.id); if (selected?.id === company.id) setSelected(null); } }
 
   return <>
-    <PageHeader title="就活情報" description="企業ごとの選考状況と期限をまとめて管理" onAdd={openAddForm} />
+    <PageHeader title="就活情報" onAdd={openAddForm} />
     <div className="toolbar"><label className="search-box"><Search size={18} /><span className="sr-only">企業名を検索</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="企業名を検索" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="選考状況で絞り込み"><option>すべて</option>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></div>
     <div className="section-heading"><h2>企業一覧</h2><span>{filtered.length}社</span></div>
     <div className="company-grid">{filtered.length ? filtered.map((company) => <article className="card company-card clickable" key={company.id} onClick={() => setSelected(company)} onKeyDown={(event) => (event.key === "Enter" || event.key === " ") && setSelected(company)} tabIndex={0} role="button">

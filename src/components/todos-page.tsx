@@ -43,7 +43,7 @@ export function TodosPage() {
   }
 
   return <>
-    <PageHeader title="ToDo" description="やるべきことを期限順に整理" onAdd={openAddForm} />
+    <PageHeader title="ToDo" onAdd={openAddForm} />
     <div className="section-heading"><h2>未完了</h2><span>{pending.length}件</span></div><div className="list">{pending.length ? pending.map(renderItem) : <EmptyState title="未完了のToDoはありません" description="新しいタスクを追加してみましょう。" />}</div>
     <div className="section-heading"><h2>完了済み</h2><span>{done.length}件</span></div><div className="list">{done.length ? done.map(renderItem) : <EmptyState title="完了済みはありません" description="完了した項目がここに移動します。" />}</div>
     {formOpen && <Modal title={editing ? "ToDoを編集" : "ToDoを追加"} onClose={closeForm}><form className="form-grid" onSubmit={submit} key={editing?.id ?? "new"}>
