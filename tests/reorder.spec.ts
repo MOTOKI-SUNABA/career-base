@@ -5,7 +5,7 @@ const memos = [
   { id: "a", title: "対象A", category: "研究" },
   { id: "b", title: "その他B", category: "通常メモ" },
   { id: "c", title: "対象C", category: "研究" },
-].map((memo) => ({ ...memo, content: `${memo.title}の本文`, tags: ["タグ"], companyId: "company", createdAt: stamp, updatedAt: stamp }));
+].map((memo) => ({ ...memo, content: `${memo.title}の本文`, tags: ["タグ", memo.category], companyId: "company", createdAt: stamp, updatedAt: stamp }));
 const companies = [
   { id: "a", name: "対象A", selectionStatus: "面接" },
   { id: "b", name: "その他B", selectionStatus: "検討中" },
@@ -55,18 +55,18 @@ test("mouse drags whole company rows, saves order and does not open the detail",
 
 test("dragging filtered memos preserves hidden slots and the open editor", async ({ page }) => {
   await seed(page); await page.goto("/memos");
-  await page.getByRole("button", { name: "対象A タグ", exact: true }).click();
+  await page.getByRole("button", { name: "対象A タグ 研究", exact: true }).click();
   await page.getByRole("textbox", { name: "メモ本文" }).fill("編集中の本文");
-  await page.getByRole("combobox", { name: "カテゴリで絞り込み" }).selectOption("研究");
+  await page.getByRole("combobox", { name: "タグで絞り込み" }).selectOption("研究");
   const rows = page.locator(".memo-compact-list .memo-list-item");
   await dragRow(page, rows.first(), rows.last());
   await expect(page.locator(".memo-list-title")).toHaveText(["対象C", "対象A"]);
   await expect(page.getByRole("textbox", { name: "メモ本文" })).toContainText("編集中の本文");
   expect(await savedIds(page, "career-base-memos")).toEqual(["c", "b", "a"]);
-  await page.getByRole("combobox", { name: "カテゴリで絞り込み" }).selectOption("すべて");
+  await page.getByRole("combobox", { name: "タグで絞り込み" }).selectOption("");
   await expect(page.locator(".memo-list-title")).toHaveText(["対象C", "その他B", "対象A"]);
   await page.reload();
-  await page.getByRole("button", { name: "対象A タグ", exact: true }).click();
+  await page.getByRole("button", { name: "対象A タグ 研究", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "メモ本文" })).toContainText("編集中の本文");
 });
 

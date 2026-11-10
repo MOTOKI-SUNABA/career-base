@@ -5,7 +5,7 @@ const notes = [
   { id: "a", title: "対象A", category: "研究" },
   { id: "b", title: "その他B", category: "通常メモ" },
   { id: "c", title: "対象C", category: "研究" },
-].map((note) => ({ ...note, content: `${note.title}の本文`, richContent: `<p><strong>${note.title}の本文</strong></p>`, tags: ["タグ"], companyId: "company-1", createdAt: stamp, updatedAt: stamp }));
+].map((note) => ({ ...note, content: `${note.title}の本文`, richContent: `<p><strong>${note.title}の本文</strong></p>`, tags: ["タグ", note.category], companyId: "company-1", createdAt: stamp, updatedAt: stamp }));
 
 async function seed(page: Page) {
   await page.goto("/memos");
@@ -20,8 +20,8 @@ async function saved(page: Page) {
 
 test("bulk category move keeps rich content, order and the open editor in sync", async ({ page }) => {
   await seed(page);
-  await page.getByRole("button", { name: "対象A タグ", exact: true }).click();
-  await page.getByRole("combobox", { name: "カテゴリで絞り込み", exact: true }).selectOption("研究");
+  await page.getByRole("button", { name: "対象A タグ 研究", exact: true }).click();
+  await page.getByRole("combobox", { name: "タグで絞り込み", exact: true }).selectOption("研究");
   await page.getByRole("button", { name: "選択", exact: true }).click();
   await expect(page.locator(".reorder-handle")).toHaveCount(0);
   await page.getByRole("button", { name: "表示中をすべて選択", exact: true }).click();
@@ -30,7 +30,7 @@ test("bulk category move keeps rich content, order and the open editor in sync",
   await page.getByRole("combobox", { name: "移動先", exact: true }).selectOption("面接対策");
   await page.getByRole("button", { name: "移動する", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "メモ本文", exact: true }).locator("strong")).toHaveText("対象Aの本文");
-  await expect(page.getByRole("combobox", { name: "カテゴリ", exact: true })).toHaveValue("面接対策");
+  expect((await saved(page))[0].category).toBe("面接対策");
   await page.getByRole("textbox", { name: "タイトル", exact: true }).fill("移動後の編集");
   const values = await saved(page);
   expect(values.map((note) => note.id)).toEqual(["a", "b", "c"]);
@@ -38,13 +38,13 @@ test("bulk category move keeps rich content, order and the open editor in sync",
   expect(values[1]).toEqual(notes[1]);
   expect(values[2]).toMatchObject({ ...notes[2], category: "面接対策", updatedAt: expect.any(String) });
   await page.reload();
-  await page.getByRole("button", { name: "移動後の編集 タグ", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "カテゴリ", exact: true })).toHaveValue("面接対策");
+  await page.getByRole("button", { name: "移動後の編集 タグ 研究", exact: true }).click();
+  expect((await saved(page))[0].category).toBe("面接対策");
 });
 
 test("search clears selections; confirmed deletion affects only displayed selected memos and closes a deleted editor", async ({ page }) => {
   await seed(page);
-  await page.getByRole("button", { name: "対象A タグ", exact: true }).click();
+  await page.getByRole("button", { name: "対象A タグ 研究", exact: true }).click();
   await page.getByRole("button", { name: "選択", exact: true }).click();
   await page.getByRole("checkbox", { name: "その他Bを選択", exact: true }).check();
   await page.getByRole("textbox", { name: "メモを検索", exact: true }).fill("対象");
@@ -84,7 +84,7 @@ test("keyboard selection, category clearing, select all and deselect fit on mobi
   const checkbox = page.getByRole("checkbox", { name: "対象Aを選択", exact: true });
   await checkbox.focus(); await checkbox.press("Space");
   await expect(checkbox).toBeChecked();
-  await page.getByRole("combobox", { name: "カテゴリで絞り込み", exact: true }).selectOption("研究");
+  await page.getByRole("combobox", { name: "タグで絞り込み", exact: true }).selectOption("研究");
   await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(0);
   await page.getByRole("button", { name: "表示中をすべて選択", exact: true }).click();
   await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(2);

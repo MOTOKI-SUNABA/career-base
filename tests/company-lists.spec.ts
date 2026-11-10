@@ -127,14 +127,14 @@ test("duplicate list names are rejected and mobile list switching and selection 
   await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
   await page.getByRole("button", { name: "キャンセル", exact: true }).click();
   await page.setViewportSize({ width: 320, height: 812 });
-  await page.getByRole("combobox", { name: "表示リスト", exact: true }).selectOption("__all");
+  await page.getByRole("navigation", { name: "企業リストの切り替え" }).getByRole("button", { name: /^すべて/ }).click();
   await page.getByRole("button", { name: "選択", exact: true }).click();
   await page.getByRole("button", { name: "表示中をすべて選択", exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   if (process.env.CAPTURE_CAREER_UI) await page.screenshot({ path: "work/company-lists-mobile.png", fullPage: true });
   await page.getByRole("button", { name: "リスト移動", exact: true }).click();
   await page.getByRole("button", { name: "移動する", exact: true }).click();
-  await page.getByRole("combobox", { name: "表示リスト", exact: true }).selectOption((await workspace(page)).lists[0].id);
+  await page.getByRole("navigation", { name: "企業リストの切り替え" }).locator(".career-list-link").filter({ hasText: "エントリー予定" }).click();
   await expect(page.locator(".company-list-name")).toHaveCount(3);
 });
 

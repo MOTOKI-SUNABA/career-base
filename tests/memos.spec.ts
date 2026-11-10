@@ -114,7 +114,10 @@ test("create, search, filter, focus and delete retain existing behavior", async 
   const title = page.getByRole("textbox", { name: "タイトル", exact: true });
   await title.fill("新しいメモ");
   await page.getByRole("textbox", { name: "メモ本文" }).fill("検索用の本文");
-  await page.getByLabel("タグ", { exact: true }).fill("就活, ES, 就活");
+  for (const tag of ["就活", "ES", "就活"]) {
+    await page.getByLabel("タグ", { exact: true }).fill(tag);
+    await page.getByRole("button", { name: "タグを追加", exact: true }).click();
+  }
   expect((await savedNotes(page))[0].tags).toEqual(["就活", "ES"]);
   await page.getByRole("button", { name: "一覧を閉じる" }).click();
   await expect(page.getByRole("complementary", { name: "メモ一覧" })).toBeHidden();
@@ -122,11 +125,24 @@ test("create, search, filter, focus and delete retain existing behavior", async 
   await page.getByRole("textbox", { name: "メモを検索", exact: true }).fill("検索用");
   await expect(page.locator(".memo-list-item")).toHaveCount(1);
   await page.getByRole("textbox", { name: "メモを検索", exact: true }).fill("");
-  await page.getByRole("combobox", { name: "カテゴリで絞り込み" }).selectOption("研究");
+  await page.getByRole("combobox", { name: "タグで絞り込み" }).selectOption("ES");
   await expect(page.locator(".memo-list-item")).toHaveCount(1);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "このメモを削除" }).click();
   expect((await savedNotes(page)).some((memo) => memo.title === "新しいメモ")).toBe(false);
+});
+
+test("empty tag input shows all available tags and selected tags filter notes", async ({ page }) => {
+  await page.getByRole("button", { name: "＋ 追加", exact: true }).click();
+  await page.getByRole("combobox", { name: "タグ", exact: true }).click();
+  const suggestions = page.getByRole("listbox", { name: "既存のタグ候補" });
+  await expect(suggestions.getByRole("option")).toHaveText(["研究", "面接"]);
+  await suggestions.getByRole("option", { name: "研究", exact: true }).click();
+  await expect(page.locator(".memo-edit-tag")).toHaveText("研究");
+  await page.getByRole("combobox", { name: "タグで絞り込み" }).selectOption("面接");
+  await expect(page.locator(".memo-list-title")).toHaveText(["既存のメモ"]);
+  await page.getByRole("combobox", { name: "タグで絞り込み" }).selectOption("");
+  await expect(page.locator(".memo-list-item")).toHaveCount(3);
 });
 
 test("backup roundtrip preserves rich content and unsafe links are rejected", async ({ page }) => {
