@@ -35,6 +35,9 @@ export function MemoEditor({ memo, onChange }: { memo: Memo; onChange: (content:
     content: memoEditorContent(memo),
     parseOptions: { preserveWhitespace: "full" },
     editorProps: {
+      // Keep the caret above the fixed navigation and below the sticky toolbar.
+      scrollThreshold: { top: 110, bottom: 120, left: 12, right: 12 },
+      scrollMargin: { top: 120, bottom: 140, left: 12, right: 12 },
       attributes: { class: "memo-rich-text", role: "textbox", "aria-label": "メモ本文", "aria-multiline": "true", "data-placeholder": "ここから自由に書き始めましょう…" },
       handleKeyDown: (view, event) => {
         if (event.isComposing || view.composing) return false;
