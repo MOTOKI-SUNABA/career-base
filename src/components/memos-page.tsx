@@ -168,7 +168,7 @@ export function MemosPage() {
   }
 
   function memoSummary(memo: Memo) {
-    return <><MemoListHeading memo={memo} selected={draft?.id === memo.id && !selecting} />{memo.tags.length > 0 && <span className="memo-list-tags">{memo.tags.map((tag) => <span key={tag}><Hash size={11} />{tag}</span>)}</span>}</>;
+    return <><MemoListHeading memo={memo} selected={draft?.id === memo.id && !selecting} /><span className="memo-list-tags">{memo.tags.map((tag) => <span key={tag}><Hash size={11} />{tag}</span>)}</span></>;
   }
 
   return <div className="memos-page">

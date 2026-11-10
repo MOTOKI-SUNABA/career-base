@@ -168,3 +168,9 @@ VercelでもSupabase同期を使う場合は、Project SettingsのEnvironment Va
 - 無料メールアドレスをSMTPの送信元にすると、確認メールが迷惑メールへ振り分けられる場合があります
 - 同じデータを複数端末から同時編集した場合、最後にクラウドへ保存された内容が優先されます
 - ブラウザの保存データを消去するとlocalStorageのデータも消えるため、未ログインで利用する場合はJSONバックアップを作成してください
+
+### カレンダーの祝日データ
+
+内閣府「国民の祝日」CSV（https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv）を加工し、`src/data/japanese-holidays.json` に保存しています。現在の収録範囲は1955〜2027年です。振替休日なども公式CSVの名称で表示します。画面表示時の外部通信は不要です。
+
+内閣府が翌年分を公表した後は `npm run update:holidays` で更新し、生成されたJSONもコミットしてください。未収録の年はカレンダーに「祝日データは未取得」と表示します。出典：https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html

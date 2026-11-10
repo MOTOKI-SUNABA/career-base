@@ -149,7 +149,7 @@ export function CareerPage() {
 
   function cells(value: Company) {
     const date = companyListDate(value);
-    return <>{selecting ? <span className="company-list-name" title={value.name}>{value.name}</span> : <button type="button" className="company-list-name company-detail-open" title={value.name} aria-haspopup="dialog" disabled={!ready}>{value.name}</button>}<span className="company-list-status"><SelectionStatusBadge status={value.selectionStatus} onChange={selecting ? undefined : (status) => changeSelectionStatus(value.id, status)} label={`${value.name}の選考状況`} disabled={!ready} /></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : "日付なし"}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
+    return <>{selecting ? <span className="company-list-name" title={value.name}>{value.name}</span> : <button type="button" className="company-list-name company-detail-open" title={value.name} aria-haspopup="dialog" disabled={!ready}>{value.name}</button>}<span className="company-list-status"><SelectionStatusBadge status={value.selectionStatus} onChange={selecting ? undefined : (status) => changeSelectionStatus(value.id, status)} label={`${value.name}の選考状況`} disabled={!ready} /></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : null}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
   }
 
   return <>
@@ -157,7 +157,7 @@ export function CareerPage() {
     {cloud.loading && <p className="muted" role="status">保存済みの企業情報を確認しています…</p>}
     <div className="career-workspace">
       <aside className="career-sidebar" aria-label="企業リスト">
-        <div className="career-sidebar-heading"><h2><Folder size={16} />リスト</h2><button type="button" className="secondary-button" onClick={() => openDialog({ kind: "new-list" })} disabled={!ready}><Plus size={15} />リスト</button></div>
+        <div className="career-sidebar-heading"><h2><Folder size={16} />リスト</h2><button type="button" className="secondary-button" aria-label="リスト" title="リストを追加" onClick={() => openDialog({ kind: "new-list" })} disabled={!ready}><Plus size={15} /></button></div>
         <label className="career-mobile-list-picker">表示リスト<select value={activeList} onChange={(event) => chooseList(event.target.value)}><option value={ALL}>すべて（{companies.length}）</option><option value={UNFILED}>未分類（{companies.filter((company) => membership(company) === UNFILED).length}）</option>{lists.map((list) => <option value={list.id} key={list.id}>{list.name}（{companies.filter((company) => company.listId === list.id).length}）</option>)}</select></label>
         <nav className="career-list-nav" aria-label="企業リストの切り替え">
           {[{ id: ALL, name: "すべて", count: companies.length }, { id: UNFILED, name: "未分類", count: companies.filter((company) => membership(company) === UNFILED).length }, ...lists.map((list) => ({ ...list, count: companies.filter((company) => company.listId === list.id).length }))].map((list) => <div className="career-list-nav-row" key={list.id}>

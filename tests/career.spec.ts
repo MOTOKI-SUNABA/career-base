@@ -24,7 +24,7 @@ test("compact rows show the nearest upcoming date and keep details behind a keyb
   await expect(rows.nth(1).locator("time")).toHaveAttribute("dateTime", "2026-11-08");
   await expect(rows.nth(1)).toContainText("締切");
   await expect(rows.nth(2).locator("time")).toHaveAttribute("dateTime", "2026-11-06");
-  await expect(rows.nth(3)).toContainText("日付なし");
+  await expect(rows.nth(3).locator(".company-list-date")).toBeEmpty();
   await expect(page.getByRole("button", { name: "編集する", exact: true })).toHaveCount(0);
   await expect(page.getByText("志望度 第一志望群", { exact: true })).toHaveCount(0);
   if (process.env.CAPTURE_CAREER_UI) await page.screenshot({ path: "work/career-desktop.png", fullPage: true });

@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Cloud, DatabaseBackup, Download, LogIn, LogOut, RotateCcw, Trash2, Upload, UserPlus } from "lucide-react";
 import { PageHeader } from "./ui";
+import { BrandHeader } from "./brand-header";
 import { useCloudSync } from "./cloud-sync-provider";
 import { clearCareerBaseData, createBackup, parseBackup, restoreBackup } from "@/lib/backup";
 import { notifyStorageRestored, scheduleCloudUpload } from "@/lib/cloud-sync";
@@ -96,7 +97,8 @@ export function SettingsPage() {
   }
 
   return <>
-    <PageHeader title="設定" description="クラウド同期とバックアップ" showSettings={false} />
+    <BrandHeader />
+    <PageHeader title="設定" showSettings={false} />
     {(notice ?? cloud.statusNotice) && <div className={`notice notice-${(notice ?? cloud.statusNotice)?.tone}`} role="status">{(notice ?? cloud.statusNotice)?.text}</div>}
     <div className="settings-grid">
       <section className="card cloud-card">
