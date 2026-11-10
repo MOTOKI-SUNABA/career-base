@@ -1,5 +1,6 @@
 import type { Company, CompanyList, CompanyWorkspace } from "@/types";
 import { STORAGE_KEYS } from "./storage";
+import { normalizeCompanyStatuses } from "./selection-status";
 
 export const EMPTY_COMPANY_WORKSPACE: CompanyWorkspace = { version: 1, companies: [], lists: [] };
 
@@ -15,11 +16,11 @@ export function isCompanyListArray(value: unknown): value is CompanyList[] {
 
 /** Read legacy company arrays and the new atomic companies/lists document. */
 export function parseCompanyWorkspace(value: unknown): CompanyWorkspace | null {
-  if (Array.isArray(value) && value.every(isNamedRecord)) return { version: 1, companies: value as Company[], lists: [] };
+  if (Array.isArray(value) && value.every(isNamedRecord)) return { version: 1, companies: normalizeCompanyStatuses(value as Company[]), lists: [] };
   if (!value || typeof value !== "object") return null;
   const data = value as Partial<CompanyWorkspace>;
   if (data.version !== 1 || !Array.isArray(data.companies) || !data.companies.every(isNamedRecord) || !isCompanyListArray(data.lists)) return null;
-  return { version: 1, companies: data.companies, lists: data.lists };
+  return { version: 1, companies: normalizeCompanyStatuses(data.companies), lists: data.lists };
 }
 
 export function readCompanyWorkspace(): CompanyWorkspace {
@@ -30,7 +31,7 @@ export function readCompanyWorkspace(): CompanyWorkspace {
 
 export function writeCompanyWorkspace(workspace: CompanyWorkspace): boolean {
   if (typeof window === "undefined") return false;
-  try { window.localStorage.setItem(STORAGE_KEYS.companies, JSON.stringify(workspace)); return true; }
+  try { window.localStorage.setItem(STORAGE_KEYS.companies, JSON.stringify({ ...workspace, companies: normalizeCompanyStatuses(workspace.companies) })); return true; }
   catch { return false; }
 }
 

@@ -7,9 +7,9 @@ const memos = [
   { id: "c", title: "対象C", category: "研究" },
 ].map((memo) => ({ ...memo, content: `${memo.title}の本文`, tags: ["タグ", memo.category], companyId: "company", createdAt: stamp, updatedAt: stamp }));
 const companies = [
-  { id: "a", name: "対象A", selectionStatus: "面接" },
+  { id: "a", name: "対象A", selectionStatus: "選考中" },
   { id: "b", name: "その他B", selectionStatus: "検討中" },
-  { id: "c", name: "対象C", selectionStatus: "面接" },
+  { id: "c", name: "対象C", selectionStatus: "選考中" },
 ].map((company) => ({ ...company, interestLevel: "高", companyResearch: "企業のメモ", createdAt: stamp, updatedAt: stamp }));
 
 async function seed(page: Page) {
@@ -72,7 +72,7 @@ test("dragging filtered memos preserves hidden slots and the open editor", async
 
 test("filtered company keyboard reorder can be cancelled and committed", async ({ page }) => {
   await seed(page);
-  await page.getByRole("combobox", { name: "選考状況で絞り込み" }).selectOption("面接");
+  await page.getByRole("combobox", { name: "選考状況で絞り込み" }).selectOption("選考中");
   const handle = page.getByRole("button", { name: "対象Aを並べ替え", exact: true });
   await handle.focus(); await handle.press("Space"); await handle.press("ArrowDown"); await handle.press("Escape");
   expect(await savedIds(page, "career-base-companies")).toEqual(["a", "b", "c"]);

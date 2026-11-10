@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const stamp = "2026-01-01T00:00:00.000Z";
-const legacyCompanies = ["青葉テック", "みなと電機", "そらデザイン"].map((name, index) => ({ id: String(index), name, selectionStatus: index === 1 ? "検討中" : "面接", interestLevel: "高", companyResearch: "元の企業研究メモ", createdAt: stamp, updatedAt: stamp }));
+const legacyCompanies = ["青葉テック", "みなと電機", "そらデザイン"].map((name, index) => ({ id: String(index), name, selectionStatus: index === 1 ? "検討中" : "選考中", interestLevel: "高", companyResearch: "元の企業研究メモ", createdAt: stamp, updatedAt: stamp }));
 
 async function seed(page: Page) {
   await page.goto("/career");
@@ -150,10 +150,12 @@ test("backup exports and restores empty lists and membership, and accepts legacy
   await page.evaluate(() => localStorage.setItem("career-base-companies", "[]"));
   page.once("dialog", (dialog) => dialog.accept());
   await page.locator("#backup-file").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect.poll(async () => (await workspace(page)).lists?.[0]?.name).toBe("空のリスト");
   expect((await workspace(page)).lists[0].name).toBe("空のリスト");
   delete backup.data.companyLists;
   page.once("dialog", (dialog) => dialog.accept());
   await page.locator("#backup-file").setInputFiles({ name: "legacy.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect.poll(async () => (await workspace(page)).lists).toEqual([]);
   expect((await workspace(page)).lists).toEqual([]); expect((await workspace(page)).companies).toHaveLength(3);
 });
 

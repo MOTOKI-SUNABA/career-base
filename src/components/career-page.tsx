@@ -12,6 +12,29 @@ import { formatDate, todayKey } from "@/lib/date";
 import type { Company, CompanyList } from "@/types";
 import { selectionStatuses } from "@/types";
 
+const selectionStatusColors = {
+  "検討中": "neutral",
+  "応募準備中": "amber",
+  "選考中": "blue",
+  "合格": "green",
+  "イベント参加": "purple",
+  "不合格": "red",
+  "辞退": "neutral",
+} as const;
+
+function SelectionStatusBadge({ status, onChange, label, disabled }: { status: keyof typeof selectionStatusColors; onChange?: (status: Company["selectionStatus"]) => void; label?: string; disabled?: boolean }) {
+  const palette = {
+    neutral: { backgroundColor: "#edf0ee", color: "#526159" },
+    amber: { backgroundColor: "#fff0c2", color: "#775000" },
+    blue: { backgroundColor: "#e0eefc", color: "#235a8f" },
+    purple: { backgroundColor: "#eee5fa", color: "#694095" },
+    green: { backgroundColor: "#d8efdf", color: "#17613c" },
+    red: { backgroundColor: "#fae5e2", color: "#993d34" },
+  };
+  const style = palette[selectionStatusColors[status] ?? "neutral"];
+  return onChange ? <select className="badge selection-status selection-status-input" aria-label={label ?? "選考状況を変更"} value={status} disabled={disabled} style={style} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => onChange(event.target.value as Company["selectionStatus"])}>{selectionStatuses.map((value) => <option key={value} value={value}>{value}</option>)}</select> : <span className="badge selection-status" style={style}>{status}</span>;
+}
+
 const ALL = "__all";
 const UNFILED = "__unfiled";
 type Dialog = { kind: "add" } | { kind: "detail" | "edit" | "list-settings" | "list-delete"; id: string } | { kind: "new-list" } | { kind: "move" | "bulk-delete"; ids: string[] } | null;
@@ -49,6 +72,13 @@ export function CareerPage() {
   function chooseList(id: string) { setActiveList(id); setChecked(new Set()); setNotice(""); }
   function finish(message: string) { closeDialog(); setChecked(new Set()); setSelecting(false); setNotice(message); }
   function failed() { setError("保存できませんでした。端末の保存領域を確認して再度お試しください。"); }
+
+  function changeSelectionStatus(id: string, selectionStatus: Company["selectionStatus"]) {
+    if (!ready || !selectionStatuses.includes(selectionStatus)) return;
+    setError(""); setNotice("");
+    const saved = update((workspace) => ({ ...workspace, companies: workspace.companies.map((item) => item.id === id ? { ...item, selectionStatus, updatedAt: new Date().toISOString() } : item) }));
+    if (!saved) failed();
+  }
 
   function saveCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,7 +149,7 @@ export function CareerPage() {
 
   function cells(value: Company) {
     const date = companyListDate(value);
-    return <><span className="company-list-name" title={value.name}>{value.name}</span><span className="company-list-status"><StatusBadge tone="green">{value.selectionStatus}</StatusBadge></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : "日付なし"}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
+    return <>{selecting ? <span className="company-list-name" title={value.name}>{value.name}</span> : <button type="button" className="company-list-name company-detail-open" title={value.name} aria-haspopup="dialog" disabled={!ready}>{value.name}</button>}<span className="company-list-status"><SelectionStatusBadge status={value.selectionStatus} onChange={selecting ? undefined : (status) => changeSelectionStatus(value.id, status)} label={`${value.name}の選考状況`} disabled={!ready} /></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : "日付なし"}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
   }
 
   return <>
@@ -141,6 +171,7 @@ export function CareerPage() {
         <div className="toolbar"><label className="search-box"><Search size={18} /><span className="sr-only">企業名を検索</span><input value={query} onChange={(event) => { setQuery(event.target.value); setChecked(new Set()); }} placeholder="企業名を検索" /></label><select value={status} onChange={(event) => { setStatus(event.target.value); setChecked(new Set()); }} aria-label="選考状況で絞り込み"><option>すべて</option>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></div>
         <div className="career-section-heading"><h2>{activeName}<span>{filtered.length}社</span></h2><button type="button" className="secondary-button" disabled={!ready} aria-pressed={selecting} onClick={() => { setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={16} />{selecting ? "完了" : "選択"}</button></div>
         {notice && <p className="career-notice" role="status">{notice}</p>}
+        {error && !dialog && <p className="error-message" role="alert">{error}</p>}
         {selecting && <div className="company-bulk-toolbar"><span>{selectedVisible.length}社を選択中</span><div>
           <button type="button" className="secondary-button bulk-select-all" disabled={!filtered.length} onClick={() => setChecked(selectedVisible.length === filtered.length ? new Set() : new Set(filtered.map((company) => company.id)))}>{selectedVisible.length === filtered.length && filtered.length ? "選択をすべて解除" : "表示中をすべて選択"}</button>
           <button type="button" className="secondary-button" disabled={!selectedVisible.length} onClick={() => openDialog({ kind: "move", ids: selectedVisible.map((company) => company.id) })}>リスト移動</button>
@@ -149,7 +180,7 @@ export function CareerPage() {
         {filtered.length ? <div className={`company-list-surface${selecting ? " is-selecting" : ""}`}>
           <div className="company-list-columns" aria-hidden="true"><span>企業名</span><span>選考状況</span><span>日付</span><span /></div>
           {selecting ? <ul className="company-list company-selection-list" aria-label="企業を選択">{filtered.map((company) => <li key={company.id}><label className={`company-selection-row${checked.has(company.id) ? " checked" : ""}`}><input type="checkbox" className="selection-circle" aria-label={`${company.name}を選択`} checked={checked.has(company.id)} onChange={(event) => { const next = new Set(checked); if (event.target.checked) next.add(company.id); else next.delete(company.id); setChecked(next); }} /><span className="company-selection-content">{cells(company)}</span></label></li>)}</ul> :
-            <SortableList items={filtered} label="企業一覧" className="company-list" getLabel={(company) => company.name} onMove={reorder} disabled={!ready}>{(company) => <button type="button" className="company-list-row" aria-haspopup="dialog" disabled={!ready} onClick={() => openDialog({ kind: "detail", id: company.id })}>{cells(company)}</button>}</SortableList>}
+            <SortableList items={filtered} label="企業一覧" className="company-list" getLabel={(company) => company.name} onMove={reorder} disabled={!ready}>{(company) => <div className="company-list-row" onClick={() => { if (ready) openDialog({ kind: "detail", id: company.id }); }}>{cells(company)}</div>}</SortableList>}
         </div> : <EmptyState title={companies.length ? "該当する企業はありません" : "企業を登録しましょう"} description="検索条件を変更するか、企業を追加してください。" />}
       </div>
     </div>
@@ -158,7 +189,7 @@ export function CareerPage() {
 
     {dialog?.kind === "detail" && company && <Modal title={company.name} onClose={closeDialog}><div className="detail-stack">
       {error && <p className="error-message" role="alert">{error}</p>}
-      <div className="detail-header"><div className="meta-row"><StatusBadge tone="blue">{company.selectionStatus}</StatusBadge><StatusBadge tone="green">志望度 {company.interestLevel}</StatusBadge></div><button className="secondary-button" onClick={() => openDialog({ kind: "edit", id: company.id })}><Pencil size={16} />編集する</button></div>
+      <div className="detail-header"><div className="meta-row"><SelectionStatusBadge status={company.selectionStatus} onChange={(status) => changeSelectionStatus(company.id, status)} disabled={!ready} /><StatusBadge tone="green">志望度 {company.interestLevel}</StatusBadge></div><button className="secondary-button" onClick={() => openDialog({ kind: "edit", id: company.id })}><Pencil size={16} />編集する</button></div>
       <dl className="detail-list"><div><dt>所属リスト</dt><dd>{lists.find((list) => list.id === company.listId)?.name ?? "未分類"}</dd></div><div><dt>業界</dt><dd>{company.industry || "未設定"}</dd></div><div><dt>希望職種</dt><dd>{company.desiredRole || "未設定"}</dd></div><div><dt>エントリー締切</dt><dd>{formatDate(company.entryDeadline)}</dd></div><div><dt>次回選考日</dt><dd>{formatDate(company.nextSelectionDate)}</dd></div>{company.location && <div><dt>所在地</dt><dd>{company.location}</dd></div>}</dl>
       <section><h3>企業研究メモ</h3><p>{company.companyResearch || "まだメモはありません。"}</p></section><div className="company-detail-delete"><button type="button" className="danger-button" onClick={() => { if (confirmDelete("この企業")) deleteCompanies([company.id]); }}><Trash2 size={16} />この企業を削除</button></div>
     </div></Modal>}

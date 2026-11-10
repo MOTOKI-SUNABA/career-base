@@ -383,3 +383,9 @@ html{background:#edf1ee}
 .memo-tag-suggestions>li{display:flex;align-items:center;gap:4px;padding:8px 10px;border-radius:5px;color:var(--green);font-size:13px;overflow-wrap:anywhere;cursor:pointer}
 .memo-tag-suggestions>li:hover,.memo-tag-suggestions>li[aria-selected=true]{background:var(--green-soft)}
 .memo-tag-suggestions>li svg{flex:none}
+
+.company-detail-open{border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-align:left;cursor:pointer}
+.selection-status-input{max-width:100%;border:1px solid transparent;padding-right:4px;cursor:pointer;font:inherit;font-size:11px;font-weight:800;min-height:32px}
+.selection-status-input:hover{border-color:currentColor}
+.selection-status-input option{background:white;color:var(--ink)}
+@media(pointer:coarse){.selection-status-input{min-height:44px}}
