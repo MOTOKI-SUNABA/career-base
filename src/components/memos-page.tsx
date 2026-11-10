@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Hash, ListFilter, NotebookPen, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, Hash, ListFilter, NotebookPen, ChevronLeft, ChevronRight, Plus, Search, Trash2, X } from "lucide-react";
 import { EmptyState, FormField, Modal, PageHeader, confirmDelete } from "./ui";
 import { MemoEditor } from "./memo-editor";
 import { SortableList } from "./sortable-list";
@@ -194,8 +194,8 @@ export function MemosPage() {
         {draft ? <>
           <div className="memo-editor-actions">
             <button type="button" className="secondary-button memo-back" onClick={backToList}><ArrowLeft size={16} />一覧に戻る</button>
-            <button type="button" className="secondary-button memo-focus" onClick={() => setFocused(!focused)} aria-pressed={focused}>{focused ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}{focused ? "一覧を表示" : "一覧を閉じる"}</button>
-          <div className="memo-save-state" role="status">{saveFailed ? <span className="memo-save-error">この端末に保存できませんでした。<button type="button" onClick={() => persist(draft)}>再試行</button></span> : <span>この端末に自動保存済み</span>}</div>
+            <button type="button" className="secondary-button memo-focus" onClick={() => setFocused(!focused)} aria-pressed={focused}>{focused ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}{focused ? "一覧を表示" : "一覧を閉じる"}</button>
+          <div className="memo-save-state" role="status">{saveFailed ? <span className="memo-save-error">この端末に保存できませんでした。<button type="button" onClick={() => persist(draft)}>再試行</button></span> : <span>自動保存済み</span>}</div>
             <div className="memo-editor-options"><button type="button" className="icon-button" onClick={deleteMemo} aria-label="このメモを削除"><Trash2 size={17} /></button></div>
           </div>
           {operationError && <p className="error-message" role="alert">{operationError}</p>}

@@ -74,7 +74,11 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 .memo-editor-pane{border-left:1px solid var(--line)}
 .memo-editor-actions{padding:16px 24px 10px;gap:12px}
 .memo-editor-actions .secondary-button{border:0;padding:0;background:transparent}
+.memo-editor-actions .memo-back,.memo-editor-actions .memo-focus{padding:6px 10px;min-height:38px;border-radius:6px;gap:6px}
+.memo-editor-actions .memo-back:hover,.memo-editor-actions .memo-focus:hover{background:var(--green-soft)}
 .memo-editor-actions>.memo-save-state{padding:0;font-size:11px}
+.memo-editor-actions .memo-focus{display:inline-flex;align-items:center;gap:6px;min-height:38px;font-size:12px;font-weight:700;white-space:nowrap}
+.memo-editor-actions .memo-focus+.memo-save-state{border-left:1px solid var(--line);padding-left:14px;margin-left:2px;line-height:16px}
 .memo-document-meta{padding:16px 28px 20px}
 .memo-title-input{font-size:28px;font-weight:800;color:var(--ink);margin-bottom:16px}
 .memo-metadata-fields>.memo-tags-field{flex:0 1 180px;width:180px}
@@ -156,6 +160,8 @@ main:has(>.brand-header){max-width:900px;margin:auto}
  .page-header{margin-bottom:22px;gap:12px}.page-header h1{font-size:27px}
  .header-actions{gap:5px}.header-actions .primary-button{font-size:14px;padding:0 12px;min-height:40px}
  .header-actions .icon-button{width:36px}
+ .header-actions .page-add-button{width:36px;min-height:36px;padding:0;font-size:23px;line-height:1}
+ .page-add-button .page-add-label{display:none}
  .brand-header{padding:6px 0 28px}.brand-link{font-size:30px}.brand-icon{width:40px;height:40px}
  .bottom-nav{min-height:70px;padding-left:8px;padding-right:8px}
  .bottom-nav a{min-height:48px;font-size:11px}.bottom-nav a svg{width:22px;height:22px}
@@ -182,13 +188,19 @@ main:has(>.brand-header){max-width:900px;margin:auto}
  .memo-list-tags>span{font-size:10px}.memo-list-heading-row>.memo-created-date{font-size:10px}
  .memo-editor-pane{border-left:0}
  .memo-editor-actions{padding:14px 0 8px;gap:8px}
+ .memo-editor-actions .memo-focus{display:none}
+ .memo-editor-actions .memo-back{min-height:44px;padding:8px 10px}
+ .memo-editor-actions .memo-focus+.memo-save-state{border-left:0;padding-left:0;margin-left:0}
  .memo-editor-actions>.memo-save-state{font-size:10px}
  .memo-document-meta{padding:12px 0 18px}.memo-title-input{font-size:25px}
  .memo-format-toolbar{padding:8px 0}
  .memo-rich-text{padding:22px 0}
  .calendar-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 8px;margin-bottom:18px;--month-grid-width:100%}
  .calendar-heading h1{font-size:24px}
- .calendar-month-buttons{grid-column:1/-1;grid-row:2;justify-content:center;gap:18px;margin:0}
+ .calendar-month-buttons{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:1fr 36px 36px 1fr;align-items:center;column-gap:12px;margin:0;width:100%}
+ .calendar-month-buttons>.icon-button:first-child{grid-column:2}
+ .calendar-month-buttons>.icon-button:nth-child(2){grid-column:3}
+ .calendar-month-buttons>.calendar-today{grid-column:4;justify-self:end}
  .calendar-month-buttons .icon-button{width:36px;height:34px}
  .calendar-heading>.header-actions{grid-column:2;grid-row:1;margin-left:0;gap:8px}
  .calendar-heading .calendar-today{min-height:32px;padding:0 9px;font-size:11px}
@@ -213,8 +225,9 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 @media(max-width:370px){
  .app-shell>main{padding-left:14px;padding-right:14px}
  .calendar-heading h1{font-size:21px}.calendar-heading .header-actions>.icon-button{width:24px}
- .calendar-month-buttons .icon-button{width:34px}.calendar-heading{gap:10px 6px}
+ .calendar-month-buttons .icon-button{width:34px}.calendar-month-buttons{grid-template-columns:1fr 34px 34px 1fr}.calendar-heading{gap:10px 6px}
  .calendar-heading .calendar-today{padding:0 6px}
  .calendar-add{width:32px!important;min-height:34px!important}
+ .header-actions .page-add-button{width:32px;min-height:34px}
  .memo-editor-actions>.memo-save-state{max-width:125px}
 }
