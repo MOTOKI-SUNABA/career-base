@@ -4,16 +4,15 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, Hash, ListFilter, NotebookPen, ChevronLeft, ChevronRight, Plus, Search, Trash2, X } from "lucide-react";
 import { EmptyState, FormField, Modal, PageHeader, confirmDelete } from "./ui";
 import { MemoEditor } from "./memo-editor";
-import { SortableList } from "./sortable-list";
 import { useCloudSync } from "./cloud-sync-provider";
 import { useLocalStorageCollection } from "@/hooks/use-local-storage-collection";
 import { STORAGE_KEYS } from "@/lib/storage";
 import { STORAGE_RESTORED_EVENT } from "@/lib/cloud-sync";
 import { memoCategories, type Memo } from "@/types";
 
-function memoCreatedDate(value: string) {
+function memoUpdatedDate(value: string, withTime = false) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "不明" : new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric" }).format(date);
+  return Number.isNaN(date.getTime()) ? "不明" : new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", ...(withTime ? { hour: "2-digit", minute: "2-digit" } as const : {}) }).format(date);
 }
 
 function MemoListHeading({ memo, selected }: { memo: Memo; selected: boolean }) {
@@ -35,15 +34,16 @@ function MemoListHeading({ memo, selected }: { memo: Memo; selected: boolean }) 
     <span ref={viewport} className={`memo-title-viewport${selected && overflow > 0 ? " is-scrolling" : ""}`} title={title}>
       <span ref={text} className="memo-list-title" style={{ "--title-shift": `-${overflow}px`, animationDuration: `${Math.max(6, overflow / 25 + 3)}s` } as React.CSSProperties}>{title}</span>
     </span>
-    <time className="memo-created-date" dateTime={memo.createdAt}>{memoCreatedDate(memo.createdAt)}</time>
+    <time className="memo-created-date" dateTime={memo.updatedAt} title={`更新日時：${memoUpdatedDate(memo.updatedAt, true)}`}>{memoUpdatedDate(memo.updatedAt)}</time>
   </span>;
 }
 
 export function MemosPage() {
   const cloud = useCloudSync();
-  const { items, hydrated, add, remove, replace, reorder, update } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
+  const { items, hydrated, add, remove, replace, update } = useLocalStorageCollection<Memo>(STORAGE_KEYS.memos);
   const [query, setQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+  const [sortOrder, setSortOrder] = useState("newest");
   const availableTags = useMemo(() => [...new Set(items.flatMap((memo) => memo.tags))].sort((a, b) => a.localeCompare(b, "ja")), [items]);
   const [draft, setDraft] = useState<Memo | null>(null);
   const draftRef = useRef<Memo | null>(null);
@@ -60,9 +60,15 @@ export function MemosPage() {
   const workspace = useRef<HTMLDivElement>(null);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    return items.filter((memo) => (!selectedTag || memo.tags.includes(selectedTag))
+    const result = items.filter((memo) => (!selectedTag || memo.tags.includes(selectedTag))
       && [memo.title, memo.content, ...memo.tags].some((value) => value.toLocaleLowerCase().includes(normalized)));
-  }, [items, query, selectedTag]);
+    result.sort((a, b) => {
+      const difference = (Date.parse(a.updatedAt) || 0) - (Date.parse(b.updatedAt) || 0);
+      return sortOrder === "newest" ? -difference : difference;
+    });
+    return result;
+  }, [items, query, selectedTag, sortOrder]);
+  const updatedAt = (draft && items.find((memo) => memo.id === draft.id)?.updatedAt) || draft?.updatedAt;
   const selectedVisible = filtered.filter((memo) => checked.has(memo.id));
   const batch = bulkDialog ? items.filter((memo) => bulkDialog.ids.includes(memo.id)) : [];
   const ready = hydrated && !cloud.loading;
@@ -180,6 +186,7 @@ export function MemosPage() {
           <label className="search-box"><Search size={18} /><span className="sr-only">メモを検索</span><input value={query} onChange={(event) => { setQuery(event.target.value); setChecked(new Set()); setNotice(""); }} placeholder="タイトル・本文・タグを検索" /></label>
           <select value={selectedTag} onChange={(event) => { setSelectedTag(event.target.value); setChecked(new Set()); setNotice(""); }} aria-label="タグで絞り込み"><option value="">すべてのタグ</option>{(selectedTag && !availableTags.includes(selectedTag) ? [selectedTag, ...availableTags] : availableTags).map((tag) => <option key={tag} value={tag}>#{tag}</option>)}</select>
         </div>
+        <label className="memo-sort-control">並び順<select aria-label="メモの並び順" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}><option value="newest">新しい順</option><option value="oldest">古い順</option></select></label>
         <div className="memo-list-heading"><h2>メモ一覧</h2><span>{hydrated ? `${filtered.length}件` : "読込中…"}</span><button type="button" className="secondary-button memo-select-button" disabled={!ready || saveFailed} aria-pressed={selecting} onClick={() => { if (!canLeave()) return; setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={15} />{selecting ? "完了" : "選択"}</button></div>
         {notice && <p className="memo-bulk-notice" role="status">{notice}</p>}
         {selecting && <div className="memo-bulk-toolbar"><span>{selectedVisible.length}件を選択中</span>
@@ -187,7 +194,7 @@ export function MemosPage() {
           <div className="memo-bulk-actions"><button type="button" className="secondary-button" disabled={!selectedVisible.length || saveFailed} onClick={() => openBulk("move")}>カテゴリ移動</button><button type="button" className="danger-button" disabled={!selectedVisible.length || saveFailed} onClick={() => openBulk("delete")}>メモ削除</button></div>
         </div>}
         {selecting ? <ul className="memo-selection-list" aria-label="メモを選択">{filtered.map((memo) => <li key={memo.id}><label className={`memo-selection-row${checked.has(memo.id) ? " checked" : ""}`}><input type="checkbox" className="selection-circle" aria-label={`${memo.title || "無題のメモ"}を選択`} checked={checked.has(memo.id)} onChange={(event) => { const next = new Set(checked); if (event.target.checked) next.add(memo.id); else next.delete(memo.id); setChecked(next); }} /><span className="memo-list-item memo-selection-content">{memoSummary(memo)}</span></label></li>)}</ul> :
-          <SortableList items={filtered} label="メモの並び順" className="memo-compact-list" getLabel={(memo) => memo.title || "無題のメモ"} onMove={reorder} disabled={cloud.loading || saveFailed}>{(memo) => <button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} aria-label={[memo.title || "無題のメモ", ...memo.tags].join(" ")} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>{memoSummary(memo)}</button>}</SortableList>}
+<ul className="memo-compact-list memo-date-sorted" aria-label="メモ一覧（更新日時順）">{filtered.map((memo) => <li key={memo.id}><button type="button" className={`memo-list-item${draft?.id === memo.id ? " selected" : ""}`} aria-label={[memo.title || "無題のメモ", ...memo.tags].join(" ")} onClick={() => openMemo(memo)} disabled={cloud.loading} aria-current={draft?.id === memo.id ? "true" : undefined}>{memoSummary(memo)}</button></li>)}</ul>}
         {hydrated && !filtered.length && <EmptyState title={items.length ? "該当するメモはありません" : "メモを残しましょう"} description={items.length ? "検索条件を変更してください。" : "「＋ 追加」から書き始められます。"} />}
       </aside>
       <section className="memo-editor-pane" aria-label="メモ編集">
@@ -201,7 +208,7 @@ export function MemosPage() {
           {operationError && <p className="error-message" role="alert">{operationError}</p>}
           <div className="memo-document-meta">
             <div className="memo-date-tags">
-              <p className="memo-created-date">作成日：<time dateTime={draft.createdAt}>{memoCreatedDate(draft.createdAt)}</time></p>
+              <p className="memo-created-date">更新日時：<time dateTime={updatedAt}>{memoUpdatedDate(updatedAt ?? draft.updatedAt, true)}</time></p>
               <div className="memo-edit-tags" aria-label="登録済みのタグ">{draft.tags.map((tag) => <span className="memo-edit-tag" key={tag}><Hash size={11} /><span>{tag}</span><button type="button" className="memo-tag-remove" aria-label={`タグ「${tag}」を削除`} onClick={() => changeMemo(draft.id, { tags: draft.tags.filter((value) => value !== tag) })}><X size={11} /></button></span>)}</div>
             </div>
             <label className="sr-only" htmlFor="memo-title">タイトル</label><input key={draft.id} id="memo-title" autoFocus={!draft.title} className="memo-title-input" value={draft.title} onChange={(event) => changeMemo(draft.id, { title: event.target.value })} placeholder="無題のメモ" />

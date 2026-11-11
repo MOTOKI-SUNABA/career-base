@@ -19,16 +19,16 @@ test.beforeEach(async ({ page }) => {
 
 test("compact rows show the nearest upcoming date and keep details behind a keyboard-accessible button", async ({ page }) => {
   const rows = page.locator(".company-list-row");
-  await expect(rows.nth(0).locator("time")).toHaveAttribute("dateTime", "2026-11-09");
-  await expect(rows.nth(0)).toContainText("次回");
-  await expect(rows.nth(1).locator("time")).toHaveAttribute("dateTime", "2026-11-08");
-  await expect(rows.nth(1)).toContainText("締切");
-  await expect(rows.nth(2).locator("time")).toHaveAttribute("dateTime", "2026-11-06");
-  await expect(rows.nth(3).locator(".company-list-date")).toBeEmpty();
+  await expect(rows.filter({ hasText: "青葉テック" }).locator("time")).toHaveAttribute("dateTime", "2026-11-09");
+  await expect(rows.filter({ hasText: "青葉テック" })).toContainText("次回");
+  await expect(rows.filter({ hasText: "みなと電機" }).locator("time")).toHaveAttribute("dateTime", "2026-11-08");
+  await expect(rows.filter({ hasText: "みなと電機" })).toContainText("締切");
+  await expect(rows.filter({ hasText: "終了した企業" }).locator("time")).toHaveAttribute("dateTime", "2026-11-06");
+  await expect(rows.filter({ hasText: "とても長い企業名" }).locator(".company-list-date")).toBeEmpty();
   await expect(page.getByRole("button", { name: "編集する", exact: true })).toHaveCount(0);
   await expect(page.getByText("志望度 第一志望群", { exact: true })).toHaveCount(0);
   if (process.env.CAPTURE_CAREER_UI) await page.screenshot({ path: "work/career-desktop.png", fullPage: true });
-  await rows.nth(0).getByRole("button").focus(); await rows.nth(0).getByRole("button").press("Enter");
+  await rows.filter({ hasText: "青葉テック" }).getByRole("button").focus(); await rows.filter({ hasText: "青葉テック" }).getByRole("button").press("Enter");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("志望度 第一志望群");

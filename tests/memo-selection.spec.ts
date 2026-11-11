@@ -93,7 +93,7 @@ test("keyboard selection, category clearing, select all and deselect fit on mobi
   await page.getByRole("button", { name: "選択をすべて解除", exact: true }).click();
   await expect(page.getByRole("button", { name: "カテゴリ移動", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "完了", exact: true }).click();
-  await expect(page.locator(".reorder-handle")).toHaveCount(2);
+  await expect(page.locator(".reorder-handle")).toHaveCount(0);
 });
 
 test("storage restore closes the bulk dialog and discards the old selection", async ({ page }) => {

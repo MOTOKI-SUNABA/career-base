@@ -57,11 +57,17 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 .selection-status-input{font-family:inherit;font-size:11px;min-height:30px;border-radius:5px}
 .career-section-heading{margin:16px 0 12px}
 .career-section-heading h2{font-size:13px;font-weight:500;color:var(--muted)}
+.company-list-controls{display:flex;align-items:center;gap:8px}
+.company-list-controls>select{min-height:34px;max-width:140px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink);font-size:12px}
+.company-list-columns{padding-left:18px}
 
 /* Consistent memo rows reserve a line for tags even when there are none. */
 .memo-workspace{grid-template-columns:280px minmax(0,1fr);border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;background:white}
 .memo-sidebar{padding:18px 14px 18px 0;border-radius:0;background:white}
 .memo-list-heading{padding:18px 6px 10px}
+.memo-sort-control{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;color:var(--muted);font-size:11px}
+.memo-sort-control select{min-height:34px;max-width:130px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink);font-size:12px}
+.memo-date-sorted>li{border-bottom:1px solid var(--line)}
 .memo-list-heading h2{font-size:13px;color:var(--muted);font-weight:500}
 .memo-compact-list{gap:0}
 .memo-compact-list .sortable-row{border-radius:0;border-bottom:1px solid var(--line)}
