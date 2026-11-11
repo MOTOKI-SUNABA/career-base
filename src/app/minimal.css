@@ -63,13 +63,16 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 
 /* Consistent memo rows reserve a line for tags even when there are none. */
 .memo-workspace{grid-template-columns:280px minmax(0,1fr);border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;background:white}
-.memo-sidebar{padding:18px 14px 18px 0;border-radius:0;background:white}
+.memo-sidebar{padding:18px 14px 18px 0;border-radius:0;background:white;overflow-x:hidden}
 .memo-list-heading{padding:18px 6px 10px}
 .memo-sort-control{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;color:var(--muted);font-size:11px}
 .memo-sort-control select{min-height:34px;max-width:130px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink);font-size:12px}
 .memo-date-sorted>li{border-bottom:1px solid var(--line)}
 .memo-list-heading h2{font-size:13px;color:var(--muted);font-weight:500}
+.memo-compact-list,.memo-selection-list{grid-template-columns:minmax(0,1fr)}
 .memo-compact-list{gap:0}
+.memo-compact-list>li,.memo-selection-list>li{min-width:0}
+.memo-list-tags{max-width:100%}
 .memo-compact-list .sortable-row{border-radius:0;border-bottom:1px solid var(--line)}
 .memo-list-item{min-height:70px;gap:5px;padding:12px 8px;border-radius:0;justify-content:center}
 .memo-list-title{font-size:14px;line-height:1.4;font-weight:700}
