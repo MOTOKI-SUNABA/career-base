@@ -97,6 +97,11 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 .memo-format-toolbar select{background:white;border:0;font-size:12px}
 .memo-tool{border:0}
 .memo-rich-text{padding:26px 28px}
+.memo-rich-text img{display:block;max-width:100%;height:auto;border-radius:4px;margin:14px 0;cursor:pointer}
+.memo-rich-text img.ProseMirror-selectednode{outline:2px solid var(--green);outline-offset:3px}
+.memo-image-notice,.memo-image-error{margin:10px 20px;font-size:12px;line-height:1.6}
+.memo-image-notice{color:var(--muted)}
+.memo-image-error{color:#a9362a}
 .memo-editor-empty{background:white;border-radius:0}
 .memo-editor-empty h2{color:var(--ink);font-size:22px}
 .memo-workspace.is-focused{grid-template-columns:minmax(0,1fr)}
