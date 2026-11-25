@@ -138,6 +138,9 @@ export function SettingsPage() {
       <section className="card settings-card"><div className="settings-icon"><RotateCcw /></div><div><h2>データを復元</h2><p>Career Baseから書き出したJSONファイルを読み込み、現在のデータと置き換えます。</p></div><input ref={fileInputRef} className="sr-only" id="backup-file" type="file" accept="application/json,.json" onChange={importData} /><button className="secondary-button" onClick={() => fileInputRef.current?.click()}><Upload size={18} />ファイルを選択</button></section>
       <section className="card settings-card danger-zone"><div className="settings-icon"><Trash2 /></div><div><h2>すべてのデータを削除</h2><p>このブラウザに保存された登録データをすべて消去します。ログイン中はクラウドにも反映されます。</p></div><button className="danger-button" onClick={clearData}><Trash2 size={18} />すべて削除</button></section>
     </div>
-    <p className="settings-note">JSONバックアップには個人情報が含まれる場合があります。第三者へ共有せず、安全な場所に保管してください。</p>
+    <div className="settings-footer">
+      <p className="settings-note">JSONバックアップには個人情報が含まれる場合があります。第三者へ共有せず、安全な場所に保管してください。</p>
+      <p className="settings-build">ビルド：<span>{process.env.NEXT_PUBLIC_BUILD_COMMIT === "unknown" ? "不明" : process.env.NEXT_PUBLIC_BUILD_COMMIT}</span></p>
+    </div>
   </>;
 }

@@ -35,6 +35,10 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 .settings-card.danger-zone{border-color:var(--line)}
 .danger-zone .settings-icon{background:transparent}
 .settings-note{margin-top:18px}
+.settings-footer{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px;margin:18px 4px 0}
+.settings-footer .settings-note{margin:0;flex:1 1 540px}
+.settings-build{margin:0 0 0 auto;color:var(--muted);font-size:11px;line-height:1.7;white-space:nowrap}
+.settings-build span{font-family:monospace;user-select:all}
 
 /* Company lists retain their stage colors and inline status editing. */
 .career-workspace{grid-template-columns:210px minmax(0,1fr);gap:28px}
