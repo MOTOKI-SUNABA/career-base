@@ -13,14 +13,21 @@ export async function prepareMemoImage(file: File): Promise<string> {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     if (!context) throw new Error("画像を読み込めませんでした。");
+    // Unsupported encoders silently return PNG, ignoring the quality argument.
+    canvas.width = canvas.height = 1;
+    const format = canvas.toDataURL("image/webp", 0.9).startsWith("data:image/webp;") ? "image/webp" : "image/jpeg";
     // Preserve detail first, then reduce resolution for busy photos/screenshots.
     for (const edge of [1600, 1280, 1024, 800, 640]) {
       const scale = Math.min(1, edge / Math.max(image.naturalWidth, image.naturalHeight));
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      if (format === "image/jpeg") {
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.9, 0.75, 0.6]) {
-        const data = canvas.toDataURL("image/webp", quality);
+        const data = canvas.toDataURL(format, quality);
         if (data.length <= 450_000) return data;
       }
     }
