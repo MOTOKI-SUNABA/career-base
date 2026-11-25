@@ -51,6 +51,31 @@ for (const action of ["paste", "drop"] as const) {
   });
 }
 
+test("detailed photos shrink further instead of failing the compressed size limit", async ({ page }) => {
+  const base64 = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1600;
+    const context = canvas.getContext("2d")!;
+    const pixels = context.createImageData(1600, 1600);
+    let seed = 42;
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      for (let channel = 0; channel < 3; channel++) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        pixels.data[index + channel] = seed >>> 24;
+      }
+      pixels.data[index + 3] = 255;
+    }
+    context.putImageData(pixels, 0, 0);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByLabel("メモに追加する画像", { exact: true }).setInputFiles({ name: "detailed.png", mimeType: "image/png", buffer: Buffer.from(base64, "base64") });
+  const image = page.locator(".memo-rich-text img");
+  await expect(image).toBeVisible();
+  expect((await image.getAttribute("src"))!.length).toBeLessThanOrEqual(450_000);
+  expect(await image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeLessThan(1600);
+  await expect(page.locator(".memo-image-error")).toHaveCount(0);
+});
+
 test("unsupported images show an error without replacing the note", async ({ page }) => {
   await page.getByLabel("メモに追加する画像", { exact: true }).setInputFiles({ name: "drawing.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>') });
   await expect(page.locator(".memo-image-error")).toContainText("PNG・JPEG・WebP・GIF");
