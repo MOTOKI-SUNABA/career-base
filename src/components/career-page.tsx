@@ -15,7 +15,7 @@ import { interestLevels, selectionStatuses } from "@/types";
 function InterestPicker({ company, onChange, disabled }: { company: Company; onChange?: (level: Company["interestLevel"]) => void; disabled?: boolean }) {
   const score = companyInterestScore(company.interestLevel);
   const label = `${company.name}の志望度`;
-  return <span className={`company-interest${score ? " is-set" : ""}`} title={`志望度：${company.interestLevel}`}>
+  return <span className="company-interest" data-interest={score} title={`志望度：${company.interestLevel}`}>
     <Star size={16} fill={score ? "currentColor" : "none"} aria-hidden="true" /><span aria-hidden="true">{score || "—"}</span>
     {onChange ? <select aria-label={label} value={company.interestLevel} disabled={disabled} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => onChange(event.target.value as Company["interestLevel"])}>
       {interestLevels.map((level) => <option key={level} value={level}>{companyInterestScore(level) ? `${"★".repeat(companyInterestScore(level))} ${level}` : "未設定"}</option>)}

@@ -59,7 +59,10 @@ main:has(>.brand-header){max-width:900px;margin:auto}
 .company-name-group{display:flex;align-items:center;gap:8px;min-width:0;grid-column:1;grid-row:1}
 .company-name-group .company-list-name{flex:1}
 .company-interest{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-width:44px;min-height:36px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:12px;font-weight:700;background:var(--surface)}
-.company-interest.is-set{color:#8a650b;background:#fff7dc;border-color:#e9d99e}
+.company-interest[data-interest="4"]{color:#805900;background:#fff0bd;border-color:#dfc46f}
+.company-interest[data-interest="3"]{color:#17613c;background:#e1f1e6;border-color:#b3d6bf}
+.company-interest[data-interest="2"]{color:#235a8f;background:#e7f0fb;border-color:#bfd2e8}
+.company-interest[data-interest="1"]{color:#526159;background:#edf0ee;border-color:#cbd3ce}
 .company-interest select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .company-interest:focus-within{outline:2px solid var(--green);outline-offset:2px}
 .company-interest:has(select:not(:disabled)):hover{border-color:var(--green)}
