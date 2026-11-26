@@ -18,6 +18,30 @@ const companies = [
 ].map((company) => ({ ...company, selectionStatus: "検討中", interestLevel: "高", companyResearch: "企業研究", createdAt: stamp, updatedAt: stamp }));
 
 for (const width of [390, 1280]) {
+  test(`interest can be changed inline, sorted and persisted (${width}px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/career");
+    await page.evaluate((companies) => { localStorage.clear(); localStorage.setItem("career-base-companies", JSON.stringify(companies)); }, companies);
+    await page.reload();
+    const sort = page.getByRole("combobox", { name: "企業の並び順", exact: true });
+    await sort.selectOption("interest");
+    await page.getByRole("combobox", { name: "青葉テックの志望度", exact: true }).selectOption("第一志望群");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator(".company-list-name")).toHaveText(["青葉テック", "そらデザイン", "みなと電機"]);
+    await page.getByRole("combobox", { name: "そらデザインの志望度", exact: true }).selectOption("未設定");
+    await expect(page.locator(".company-list-name")).toHaveText(["青葉テック", "みなと電機", "そらデザイン"]);
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "青葉テックの志望度", exact: true })).toHaveValue("第一志望群");
+    await expect(page.getByRole("combobox", { name: "そらデザインの志望度", exact: true })).toHaveValue("未設定");
+    await page.getByRole("button", { name: "青葉テック", exact: true }).click();
+    const detail = page.getByRole("dialog");
+    await detail.getByRole("combobox", { name: "青葉テックの志望度", exact: true }).selectOption("低");
+    await expect(detail.getByRole("combobox", { name: "青葉テックの志望度", exact: true })).toHaveValue("低");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("career-base-companies") || "{}").companies);
+    expect(stored.find((company: { id: string }) => company.id === "aoba").interestLevel).toBe("低");
+  });
+
   test(`company information switches between default and deadline order without drag handles (${width}px)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/career");

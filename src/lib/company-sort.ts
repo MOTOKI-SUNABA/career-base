@@ -1,4 +1,10 @@
-import type { Company } from "@/types";
+import { interestLevels, type Company } from "@/types";
+
+export type CompanySortOrder = "default" | "deadline" | "interest";
+export function companyInterestScore(level: Company["interestLevel"]): number {
+  const index = interestLevels.indexOf(level);
+  return index < 0 ? 0 : interestLevels.length - 1 - index;
+}
 
 const companyNameCollator = new Intl.Collator("ja", { sensitivity: "base", numeric: true });
 
@@ -9,8 +15,12 @@ function companyNameKey(name: string): string {
     .replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 0x60));
 }
 
-export function sortCompanies(companies: Company[], order: "default" | "deadline"): Company[] {
+export function sortCompanies(companies: Company[], order: CompanySortOrder): Company[] {
   return [...companies].sort((a, b) => {
+    if (order === "interest") {
+      const interestOrder = companyInterestScore(b.interestLevel) - companyInterestScore(a.interestLevel);
+      if (interestOrder) return interestOrder;
+    }
     if (order === "deadline") {
       const deadlineOrder = (a.entryDeadline || "9999-12-31").localeCompare(b.entryDeadline || "9999-12-31");
       if (deadlineOrder) return deadlineOrder;

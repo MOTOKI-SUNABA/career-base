@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { FormField } from "./ui";
+import { companyInterestScore } from "@/lib/company-sort";
 import { industries, interestLevels, selectionStatuses, type Company, type CompanyList } from "@/types";
 
 export function CompanyForm({ company, lists, defaultListId, error, onSubmit, onClose }: {
@@ -21,7 +22,7 @@ export function CompanyForm({ company, lists, defaultListId, error, onSubmit, on
     <details className="company-form-section"><summary>その他の情報を追加</summary><div className="company-form-fields">
       <div className="company-form-columns"><FormField label="業界" htmlFor="industry"><select id="industry" name="industry" defaultValue={company?.industry ?? ""}><option value="">未設定</option>{industryOptions.map((industry) => <option key={industry}>{industry}</option>)}</select></FormField>
         <FormField label="希望職種" htmlFor="role"><input id="role" name="desiredRole" defaultValue={company?.desiredRole} /></FormField>
-        <FormField label="志望度" htmlFor="interest"><select id="interest" name="interestLevel" defaultValue={company?.interestLevel ?? "未設定"}>{interestLevels.map((level) => <option key={level}>{level}</option>)}</select></FormField>
+        <FormField label="志望度" htmlFor="interest"><select id="interest" name="interestLevel" defaultValue={company?.interestLevel ?? "未設定"}>{interestLevels.map((level) => <option key={level} value={level}>{companyInterestScore(level) ? `${"★".repeat(companyInterestScore(level))} ${level}` : "未設定"}</option>)}</select></FormField>
         <FormField label="所在地" htmlFor="location"><input id="location" name="location" defaultValue={company?.location} /></FormField></div>
       <FormField label="企業研究メモ" htmlFor="research"><textarea id="research" name="companyResearch" defaultValue={company?.companyResearch} /></FormField>
     </div></details>

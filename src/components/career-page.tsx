@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronRight, Folder, ListFilter, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { EmptyState, FormField, Modal, PageHeader, StatusBadge, confirmDelete } from "./ui";
+import { ChevronRight, Folder, ListFilter, MoreHorizontal, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import { EmptyState, FormField, Modal, PageHeader, confirmDelete } from "./ui";
 import { CompanyForm } from "./company-form";
 import { useCompanyWorkspace } from "@/hooks/use-company-workspace";
 import { useCloudSync } from "./cloud-sync-provider";
 import { STORAGE_RESTORED_EVENT } from "@/lib/cloud-sync";
 import { formatDate, todayKey } from "@/lib/date";
-import { sortCompanies } from "@/lib/company-sort";
+import { companyInterestScore, sortCompanies, type CompanySortOrder } from "@/lib/company-sort";
 import type { Company, CompanyList } from "@/types";
-import { selectionStatuses } from "@/types";
+import { interestLevels, selectionStatuses } from "@/types";
+
+function InterestPicker({ company, onChange, disabled }: { company: Company; onChange?: (level: Company["interestLevel"]) => void; disabled?: boolean }) {
+  const score = companyInterestScore(company.interestLevel);
+  const label = `${company.name}の志望度`;
+  return <span className={`company-interest${score ? " is-set" : ""}`} title={`志望度：${company.interestLevel}`}>
+    <Star size={16} fill={score ? "currentColor" : "none"} aria-hidden="true" /><span aria-hidden="true">{score || "—"}</span>
+    {onChange ? <select aria-label={label} value={company.interestLevel} disabled={disabled} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => onChange(event.target.value as Company["interestLevel"])}>
+      {interestLevels.map((level) => <option key={level} value={level}>{companyInterestScore(level) ? `${"★".repeat(companyInterestScore(level))} ${level}` : "未設定"}</option>)}
+    </select> : <span className="sr-only">{label}：{company.interestLevel}</span>}
+  </span>;
+}
 
 const selectionStatusColors = {
   "検討中": "neutral",
@@ -45,7 +56,7 @@ export function CareerPage() {
   const [activeList, setActiveList] = useState(ALL);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("すべて");
-  const [sortOrder, setSortOrder] = useState<"default" | "deadline">("default");
+  const [sortOrder, setSortOrder] = useState<CompanySortOrder>("default");
   const [selecting, setSelecting] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -78,6 +89,13 @@ export function CareerPage() {
     if (!ready || !selectionStatuses.includes(selectionStatus)) return;
     setError(""); setNotice("");
     const saved = update((workspace) => ({ ...workspace, companies: workspace.companies.map((item) => item.id === id ? { ...item, selectionStatus, updatedAt: new Date().toISOString() } : item) }));
+    if (!saved) failed();
+  }
+
+  function changeInterestLevel(id: string, interestLevel: Company["interestLevel"]) {
+    if (!ready || !interestLevels.includes(interestLevel)) return;
+    setError(""); setNotice("");
+    const saved = update((workspace) => ({ ...workspace, companies: workspace.companies.map((item) => item.id === id ? { ...item, interestLevel, updatedAt: new Date().toISOString() } : item) }));
     if (!saved) failed();
   }
 
@@ -150,7 +168,7 @@ export function CareerPage() {
 
   function cells(value: Company) {
     const date = companyListDate(value);
-    return <>{selecting ? <span className="company-list-name" title={value.name}>{value.name}</span> : <button type="button" className="company-list-name company-detail-open" title={value.name} aria-haspopup="dialog" disabled={!ready}>{value.name}</button>}<span className="company-list-status"><SelectionStatusBadge status={value.selectionStatus} onChange={selecting ? undefined : (status) => changeSelectionStatus(value.id, status)} label={`${value.name}の選考状況`} disabled={!ready} /></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : null}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
+    return <><span className="company-name-group"><InterestPicker company={value} onChange={selecting ? undefined : (level) => changeInterestLevel(value.id, level)} disabled={!ready} />{selecting ? <span className="company-list-name" title={value.name}>{value.name}</span> : <button type="button" className="company-list-name company-detail-open" title={value.name} aria-haspopup="dialog" disabled={!ready}>{value.name}</button>}</span><span className="company-list-status"><SelectionStatusBadge status={value.selectionStatus} onChange={selecting ? undefined : (status) => changeSelectionStatus(value.id, status)} label={`${value.name}の選考状況`} disabled={!ready} /></span><span className="company-list-date">{date ? <>{date.label} <time dateTime={date.value}>{formatDate(date.value)}</time></> : null}</span>{!selecting && <ChevronRight size={16} className="company-list-arrow" aria-hidden="true" />}</>;
   }
 
   return <>
@@ -170,7 +188,7 @@ export function CareerPage() {
       </aside>
       <div className="career-main">
         <div className="toolbar"><label className="search-box"><Search size={18} /><span className="sr-only">企業名を検索</span><input value={query} onChange={(event) => { setQuery(event.target.value); setChecked(new Set()); }} placeholder="企業名を検索" /></label><select value={status} onChange={(event) => { setStatus(event.target.value); setChecked(new Set()); }} aria-label="選考状況で絞り込み"><option>すべて</option>{selectionStatuses.map((value) => <option key={value}>{value}</option>)}</select></div>
-        <div className="career-section-heading"><h2>{activeName}<span>{filtered.length}社</span></h2><div className="company-list-controls"><select aria-label="企業の並び順" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as "default" | "deadline")}><option value="default">デフォルト</option><option value="deadline">締切順</option></select><button type="button" className="secondary-button" disabled={!ready} aria-pressed={selecting} onClick={() => { setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={16} />{selecting ? "完了" : "選択"}</button></div></div>
+        <div className="career-section-heading"><h2>{activeName}<span>{filtered.length}社</span></h2><div className="company-list-controls"><select aria-label="企業の並び順" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as CompanySortOrder)}><option value="default">デフォルト</option><option value="deadline">締切順</option><option value="interest">志望度順</option></select><button type="button" className="secondary-button" disabled={!ready} aria-pressed={selecting} onClick={() => { setSelecting(!selecting); setChecked(new Set()); setNotice(""); }}><ListFilter size={16} />{selecting ? "完了" : "選択"}</button></div></div>
         {notice && <p className="career-notice" role="status">{notice}</p>}
         {error && !dialog && <p className="error-message" role="alert">{error}</p>}
         {selecting && <div className="company-bulk-toolbar"><span>{selectedVisible.length}社を選択中</span><div>
@@ -190,7 +208,7 @@ export function CareerPage() {
 
     {dialog?.kind === "detail" && company && <Modal title={company.name} onClose={closeDialog}><div className="detail-stack">
       {error && <p className="error-message" role="alert">{error}</p>}
-      <div className="detail-header"><div className="meta-row"><SelectionStatusBadge status={company.selectionStatus} onChange={(status) => changeSelectionStatus(company.id, status)} disabled={!ready} /><StatusBadge tone="green">志望度 {company.interestLevel}</StatusBadge></div><button className="secondary-button" onClick={() => openDialog({ kind: "edit", id: company.id })}><Pencil size={16} />編集する</button></div>
+      <div className="detail-header"><div className="meta-row"><SelectionStatusBadge status={company.selectionStatus} onChange={(status) => changeSelectionStatus(company.id, status)} disabled={!ready} /><InterestPicker company={company} onChange={(level) => changeInterestLevel(company.id, level)} disabled={!ready} /></div><button className="secondary-button" onClick={() => openDialog({ kind: "edit", id: company.id })}><Pencil size={16} />編集する</button></div>
       <dl className="detail-list"><div><dt>所属リスト</dt><dd>{lists.find((list) => list.id === company.listId)?.name ?? "未分類"}</dd></div><div><dt>業界</dt><dd>{company.industry || "未設定"}</dd></div><div><dt>希望職種</dt><dd>{company.desiredRole || "未設定"}</dd></div><div><dt>エントリー締切</dt><dd>{formatDate(company.entryDeadline)}</dd></div><div><dt>次回選考日</dt><dd>{formatDate(company.nextSelectionDate)}</dd></div>{company.location && <div><dt>所在地</dt><dd>{company.location}</dd></div>}</dl>
       <section><h3>企業研究メモ</h3><p>{company.companyResearch || "まだメモはありません。"}</p></section><div className="company-detail-delete"><button type="button" className="danger-button" onClick={() => { if (confirmDelete("この企業")) deleteCompanies([company.id]); }}><Trash2 size={16} />この企業を削除</button></div>
     </div></Modal>}
